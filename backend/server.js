@@ -5,6 +5,12 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 
 const app = express();
+
+// comment below app.get if deployed on vercel
+app.get('/ping', (req, res) => {
+  res.status(200).send('Pong');
+});
+
 app.use(cors());
 app.use(express.json());
 
