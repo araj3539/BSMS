@@ -1,26 +1,30 @@
 const nodemailer = require('nodemailer');
 
-let transporter = null;
-
+// --- 1. Create Transporter (Smart) ---
 async function createTransporter() {
-  if (transporter) return transporter;
-  const testAccount = await nodemailer.createTestAccount();
-  
-  transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  });
-  
-  console.log("📧 Mail Transporter Ready (Ethereal)");
-  return transporter;
+  // Option A: Real Email (If variables exist in Render)
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      service: 'gmail', // Easiest for MERN stack
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+
+  // Option B: Safe Fallback (Mock Mode)
+  // This prevents the "Connection timeout" error if you haven't set up email yet.
+  console.log("⚠️ SMTP_USER/PASS not found. Email sending is SIMULATED (Check logs).");
+  return {
+    sendMail: async (opts) => {
+      console.log(`\n--- [MOCK EMAIL SENT] ---\nTo: ${opts.to}\nSubject: ${opts.subject}\nAttachments: ${opts.attachments?.length || 0}\n-------------------------\n`);
+      return { messageId: 'mock-id', preview: 'simulated' };
+    }
+  };
 }
 
-// --- UPDATED: Added subtotal and discount support ---
+// --- 2. HTML Template Generator ---
 function getEmailTemplate({ title, message, orderId, items, subtotal, discount, total, status }) {
   const itemsHtml = items ? items.map(it => `
     <tr>
@@ -30,7 +34,6 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
     </tr>
   `).join('') : '';
 
-  // Helper to format currency safely
   const formatMoney = (amount) => Number(amount).toFixed(2);
 
   return `
@@ -76,10 +79,6 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
             </tfoot>
           </table>
         ` : ''}
-        
-        <div style="margin-top: 30px; text-align: center;">
-          <a href="http://localhost:5173/my-orders" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View Your Order</a>
-        </div>
       </div>
       <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
         &copy; ${new Date().getFullYear()} BookShop. All rights reserved.
@@ -88,20 +87,22 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
   `;
 }
 
+// --- 3. Send Email Function ---
 async function sendEmail({ to, subject, html, attachments = [] }) {
   try {
     const transport = await createTransporter();
     const info = await transport.sendMail({
-      from: '"BookShop" <no-reply@bookshop.local>',
+      from: `"BookShop" <${process.env.SMTP_USER || 'no-reply@bookshop.local'}>`,
       to,
       subject,
       html,
-      attachments // Pass attachments to nodemailer
+      attachments
     });
-    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+    console.log("Message sent: %s", info.messageId);
     return info;
   } catch (err) {
-    console.error("Email error:", err);
+    console.error("Email error:", err.message);
+    // Don't return null, allows caller to continue
     return null;
   }
 }
