@@ -6,6 +6,7 @@ import RecommendationList from "../components/RecommendationList";
 import ReviewList from "../components/ReviewList";
 import ReviewForm from "../components/ReviewForm";
 import RatingStars from "../components/RatingStars";
+import { syncCart } from '../utils/cart';
 
 export default function BookDetail() {
   const { id } = useParams();

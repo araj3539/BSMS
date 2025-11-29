@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext'; // Import AuthContext
+import { syncCart } from '../utils/cart';
 
 export default function Cart(){
   const [cart, setCart] = useState([]);
