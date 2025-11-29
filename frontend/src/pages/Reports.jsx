@@ -11,6 +11,26 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+
+function fillMissingDates(data, days) {
+  const result = [];
+  const today = new Date();
+  
+  // Iterate backwards from today
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    
+    // Check if API returned data for this specific date
+    const existing = data.find(item => item._id === dateStr);
+    
+    // Use existing data OR push a zero-entry
+    result.push(existing || { _id: dateStr, total: 0, orders: 0 });
+  }
+  return result;
+}
+
 export default function Reports() {
   const [salesByDay, setSalesByDay] = useState([]);
   const [days, setDays] = useState(30); // State for time range
@@ -76,7 +96,7 @@ export default function Reports() {
         <h4 className="font-serif text-lg font-bold text-slate-800 mb-6">Revenue Trend</h4>
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={salesByDay} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={fillMissingDates(salesByDay, days)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="_id" tick={{ fontSize: 12, fill: '#64748b' }} />
               <YAxis tick={{ fontSize: 12, fill: '#64748b' }} />
