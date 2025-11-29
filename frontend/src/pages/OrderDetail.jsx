@@ -8,20 +8,21 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [cancelling, setCancelling] = useState(false); // New State
 
-  useEffect(() => {
+  useEffect(() => { fetchOrder(); }, [id]);
+
+  function fetchOrder() {
     api.get(`/orders/${id}`)
       .then(res => setOrder(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, [id]);
+  }
 
-  // --- NEW: Handle Invoice Download ---
   async function downloadInvoice() {
     setDownloading(true);
     try {
       const res = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
-      // Create a link element, click it, and remove it
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -29,7 +30,7 @@ export default function OrderDetail() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url); // Clean up
+      window.URL.revokeObjectURL(url);
       toast.success('Invoice downloaded');
     } catch (err) {
       console.error(err);
@@ -38,7 +39,23 @@ export default function OrderDetail() {
       setDownloading(false);
     }
   }
-  // -----------------------------------
+
+  // --- NEW: Cancel Handler ---
+  async function handleCancel() {
+    if(!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
+    
+    setCancelling(true);
+    try {
+      await api.put(`/orders/${id}/cancel`);
+      toast.success('Order cancelled successfully');
+      fetchOrder(); // Refresh data
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Failed to cancel');
+    } finally {
+      setCancelling(false);
+    }
+  }
+  // ---------------------------
 
   if (loading) return <div className="flex justify-center p-20"><div className="loader"></div></div>;
   if (!order) return <div className="text-center p-20 text-slate-500">Order not found</div>;
@@ -66,26 +83,40 @@ export default function OrderDetail() {
                 <p className="text-sm text-slate-500 uppercase tracking-wider font-bold">Total Amount</p>
                 <p className="text-2xl font-serif font-bold text-indigo-600">₹{formatMoney(order.totalAmount)}</p>
             </div>
-            {/* Invoice Button */}
-            <button 
-                onClick={downloadInvoice}
-                disabled={downloading}
-                className="text-sm bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg font-medium hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-                {downloading ? 'Downloading...' : (
-                    <>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download Invoice
-                    </>
+            
+            <div className="flex gap-2">
+                {/* NEW: Cancel Button (Only if Pending) */}
+                {order.status === 'pending' && (
+                    <button 
+                        onClick={handleCancel}
+                        disabled={cancelling}
+                        className="text-sm bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded-lg font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                        {cancelling ? 'Cancelling...' : 'Cancel Order'}
+                    </button>
                 )}
-            </button>
+
+                <button 
+                    onClick={downloadInvoice}
+                    disabled={downloading}
+                    className="text-sm bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg font-medium hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                    {downloading ? 'Downloading...' : (
+                        <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Invoice
+                        </>
+                    )}
+                </button>
+            </div>
           </div>
         </div>
 
-        {/* ... (Existing Tracker & Grid Layout remains the same) ... */}
+        {/* TRACKER */}
         <div className="px-8 py-8">
             {isCancelled ? (
-            <div className="bg-red-50 text-red-700 p-4 rounded-xl text-center font-bold border border-red-100">
+            <div className="bg-red-50 text-red-700 p-4 rounded-xl text-center font-bold border border-red-100 flex items-center justify-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                 This order has been Cancelled.
             </div>
             ) : (
@@ -152,7 +183,17 @@ export default function OrderDetail() {
                 <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
                     <p className="text-sm text-slate-500 mb-1">Payment ID</p>
                     <p className="text-xs font-mono bg-slate-100 p-2 rounded text-slate-700 break-all">{order.paymentId || 'N/A'}</p>
-                    <div className="mt-4 flex items-center gap-2 text-emerald-600 text-sm font-bold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Payment Successful</div>
+                    {isCancelled ? (
+                       <div className="mt-4 flex items-center gap-2 text-red-600 text-sm font-bold">
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                         Cancelled
+                       </div>
+                    ) : (
+                       <div className="mt-4 flex items-center gap-2 text-emerald-600 text-sm font-bold">
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                         Payment Successful
+                       </div>
+                    )}
                 </div>
             </div>
           </div>

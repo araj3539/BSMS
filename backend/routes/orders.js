@@ -238,4 +238,53 @@ router.post('/create-payment-intent', auth, async (req, res) => {
   }
 });
 
+// USER: Cancel Order
+router.put('/:id/cancel', auth, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ msg: 'Order not found' });
+
+    // 1. Ownership Check
+    if (order.userId.toString() !== req.user.id) {
+      return res.status(403).json({ msg: 'Not authorized' });
+    }
+
+    // 2. Status Check
+    if (order.status !== 'pending') {
+      return res.status(400).json({ msg: 'Cannot cancel order that is already processing or shipped' });
+    }
+
+    // 3. Update Status
+    order.status = 'cancelled';
+    await order.save();
+
+    // 4. Restock Inventory (Important!)
+    const bulkOps = order.items.map(item => ({
+      updateOne: { 
+        filter: { _id: item.bookId }, 
+        update: { $inc: { stock: item.qty, soldCount: -item.qty } } 
+      }
+    }));
+    await Book.bulkWrite(bulkOps);
+
+    // 5. Send Email
+    const html = getEmailTemplate({
+        title: 'Order Cancelled',
+        message: 'Your order has been successfully cancelled as per your request.',
+        orderId: order._id,
+        items: order.items,
+        subtotal: Number(order.subtotal),
+        discount: Number(order.discount),
+        total: Number(order.totalAmount),
+        status: 'cancelled'
+    });
+    await sendEmail({ to: order.userEmail, subject: `Order #${order._id} Cancelled`, html });
+
+    res.json(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
 module.exports = router;
