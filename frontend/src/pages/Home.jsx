@@ -3,6 +3,7 @@ import api from "../services/api";
 import BookCard from "../components/BookCard";
 import FilterSidebar from "../components/FilterSidebar";
 import { useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
