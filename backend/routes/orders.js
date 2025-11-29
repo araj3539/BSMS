@@ -195,13 +195,56 @@ router.get('/:id/invoice', auth, async (req, res) => {
 });
 
 // ... (Existing GET / and GET /:id routes) ...
-router.get('/', auth, async (req,res)=>{
-  if(req.user.role === 'admin') {
-    const all = await Order.find().sort({ createdAt: -1 }).limit(200);
-    return res.json(all);
+router.get('/', auth, async (req, res) => {
+  try {
+    // 1. Customer: Just return their own orders
+    if (req.user.role !== 'admin') {
+      const list = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+      return res.json(list);
+    }
+
+    // 2. Admin: Handle Search & Pagination
+    const { q, status, page = 1, limit = 20 } = req.query;
+    const pageNum = Math.max(1, Number(page));
+    const lim = Math.max(1, Math.min(100, Number(limit)));
+    
+    const filter = {};
+
+    // Filter by Status
+    if (status) filter.status = status;
+
+    // Filter by Search (Order ID, Name, or Email)
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      const isObjectId = q.match(/^[0-9a-fA-F]{24}$/); // Check if it looks like an ID
+      
+      if (isObjectId) {
+        filter._id = q;
+      } else {
+        filter.$or = [
+          { userIdName: regex },
+          { userEmail: regex },
+          { paymentId: regex }
+        ];
+      }
+    }
+
+    const skip = (pageNum - 1) * lim;
+
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(filter),
+      Order.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(lim)
+    ]);
+
+    res.json({ orders, total, page: pageNum, limit: lim });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
   }
-  const list = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
-  res.json(list);
 });
 
 router.get('/:id', auth, async (req, res) => {
