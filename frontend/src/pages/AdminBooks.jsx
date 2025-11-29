@@ -1,11 +1,11 @@
 // src/Pages/AdminBooks.jsx
-import React, { useEffect, useState, useRef } from 'react'; // Import useRef
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import BookForm from '../components/BookForm';
 import { getUser } from '../utils/auth';
-import { toast } from 'react-hot-toast'; // Use toast for better feedback
+import { toast } from 'react-hot-toast';
 
-// --- CLOUDINARY DETAILS (Ideally move to .env in future) ---
+// --- CLOUDINARY DETAILS ---
 const CLOUDINARY_CLOUD_NAME = 'dnq0yso32'; 
 const CLOUDINARY_UPLOAD_PRESET = 'unsigned_upload_preset'; 
 const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
@@ -17,7 +17,8 @@ export default function AdminBooks(){
   const [loading, setLoading] = useState(false);
   const user = getUser();
   
-  // Ref for hidden file input
+  // 1. Create a Ref for the form section
+  const formRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(()=>{
@@ -27,14 +28,21 @@ export default function AdminBooks(){
     return () => { mounted = false; };
   }, [user]);
 
+  // 2. Auto-scroll effect: Runs whenever 'editing' or 'creating' state changes
+  useEffect(() => {
+    if ((editing || creating) && formRef.current) {
+      // scrollIntoView with 'smooth' behavior
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [editing, creating]);
+
   async function fetchBooks(){
     try {
-      const res = await api.get('/books?limit=100'); // Get more books for admin view
+      const res = await api.get('/books?limit=100'); 
       setBooks(res.data.books || []);
     } catch(e) { console.error(e); }
   }
 
-  // --- BULK UPLOAD HANDLER ---
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -48,15 +56,13 @@ export default function AdminBooks(){
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       toast.success(res.data.msg, { id: toastId });
-      fetchBooks(); // Refresh list
+      fetchBooks(); 
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.msg || 'Upload failed', { id: toastId });
     }
-    // Reset input so same file can be selected again if needed
     e.target.value = ''; 
   }
-  // ---------------------------
 
   async function uploadFile(file) {
     if (!file) return null;
@@ -116,7 +122,6 @@ export default function AdminBooks(){
       <div className="flex justify-between mb-4 items-center">
         <h2 className="text-xl font-semibold">Manage Books</h2>
         <div className="flex gap-2">
-          {/* Hidden Input */}
           <input 
             type="file" 
             accept=".csv" 
@@ -125,7 +130,6 @@ export default function AdminBooks(){
             className="hidden" 
           />
           
-          {/* Bulk Upload Button */}
           <button 
             onClick={() => fileInputRef.current.click()} 
             className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
@@ -134,7 +138,10 @@ export default function AdminBooks(){
           </button>
 
           <button 
-            onClick={()=> setCreating(true)} 
+            onClick={()=> {
+                setEditing(null); // Close edit if open
+                setCreating(true);
+            }} 
             className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             + Add Book
@@ -142,19 +149,26 @@ export default function AdminBooks(){
         </div>
       </div>
 
-      {creating && <BookForm onSubmit={createBook} submitLabel="Create" />}
+      {/* 3. Attach Ref to the form containers */}
+      {creating && (
+        <div ref={formRef} className="mb-6 scroll-mt-24">
+            <h3 className="font-semibold mb-2">Add New Book</h3>
+            <BookForm onSubmit={createBook} submitLabel="Create" />
+            <button onClick={()=> setCreating(false)} className="mt-2 text-sm text-gray-600 hover:underline">Cancel</button>
+        </div>
+      )}
 
       {editing && (
-        <div className="mb-4">
-          <h3 className="font-semibold mb-2">Edit book</h3>
+        <div ref={formRef} className="mb-6 scroll-mt-24">
+          <h3 className="font-semibold mb-2">Edit Book: <span className="text-indigo-600">{editing.title}</span></h3>
           <BookForm initial={editing} onSubmit={updateBook} submitLabel="Update" />
-          <button onClick={()=> setEditing(null)} className="mt-2 text-sm text-gray-600">Cancel</button>
+          <button onClick={()=> setEditing(null)} className="mt-2 text-sm text-gray-600 hover:underline">Cancel</button>
         </div>
       )}
 
       <div className="grid md:grid-cols-3 gap-3">
         {books.map(b => (
-          <div key={b._id} className="bg-white p-3 rounded shadow flex flex-col">
+          <div key={b._id} className={`bg-white p-3 rounded shadow flex flex-col transition-all duration-300 ${editing?._id === b._id ? 'ring-2 ring-indigo-500 shadow-md transform scale-[1.02]' : ''}`}>
             <div className="flex-1">
               <img src={b.coverImageUrl || '/Placeholder.jpg'} alt="" className="w-full h-32 object-cover mb-2 rounded" />
               <div className="font-semibold truncate" title={b.title}>{b.title}</div>
@@ -165,8 +179,16 @@ export default function AdminBooks(){
               </div>
             </div>
             <div className="mt-3 flex gap-2">
-              <button onClick={()=> setEditing(b)} className="px-2 py-1 bg-yellow-400 rounded text-sm flex-1 hover:bg-yellow-500">Edit</button>
-              <button onClick={()=> deleteBook(b._id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm flex-1 hover:bg-red-600">Delete</button>
+              <button 
+                onClick={()=> {
+                    setCreating(false); // Close create mode
+                    setEditing(b);      // Trigger state change -> triggers useEffect scroll
+                }} 
+                className="px-2 py-1 bg-yellow-400 rounded text-sm flex-1 hover:bg-yellow-500 font-medium transition-colors"
+              >
+                Edit
+              </button>
+              <button onClick={()=> deleteBook(b._id)} className="px-2 py-1 bg-red-500 text-white rounded text-sm flex-1 hover:bg-red-600 font-medium transition-colors">Delete</button>
             </div>
           </div>
         ))}
