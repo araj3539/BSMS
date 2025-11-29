@@ -70,6 +70,37 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
   };
 
+  useEffect(() => {
+    async function fetchMe() {
+      // Only fetch if we have a token
+      if (!token) return;
+
+      try {
+        // 1. Get fresh user data from DB
+        const res = await api.get('/auth/me'); 
+        const dbUser = res.data.user;
+
+        // 2. Update Local Cart Storage
+        // This ensures Device B gets the items saved by Device A
+        if (dbUser.cart && dbUser.cart.length > 0) {
+           const cartKey = `cart_${dbUser._id}`;
+           // We prioritize the DB cart over stale local data
+           localStorage.setItem(cartKey, JSON.stringify(dbUser.cart));
+        }
+
+        // 3. Update Context State
+        // This triggers the app to re-render with the new data
+        setUser(dbUser);
+        localStorage.setItem('user', JSON.stringify(dbUser));
+        
+      } catch (err) {
+        console.error("Failed to sync session:", err);
+      }
+    }
+
+    fetchMe();
+  }, [token]); // Runs whenever token exists/changes
+
   // Update profile function (e.g. if name changes)
   const updateProfile = (userData) => {
     setUser(userData);
