@@ -19,7 +19,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // GET /api/books - list (supports q param AND filters)
 router.get('/', async (req, res) => {
   try {
-    const { q, category, minPrice, maxPrice, minRating, page = 1, limit = 20 } = req.query;
+    const { q, category, minPrice, maxPrice, minRating, sort, page = 1, limit = 20 } = req.query; // Added 'sort'
     const pageNum = Math.max(1, Number(page) || 1);
     const lim = Math.max(1, Math.min(200, Number(limit) || 20));
 
@@ -44,11 +44,22 @@ router.get('/', async (req, res) => {
       filter.rating = { $gte: Number(minRating) };
     }
 
+    // --- SORTING LOGIC ---
+    let sortOption = { createdAt: -1 }; // Default: Newest first
+    if (sort === 'price_asc') sortOption = { price: 1 };
+    else if (sort === 'price_desc') sortOption = { price: -1 };
+    else if (sort === 'top_rated') sortOption = { rating: -1 };
+    else if (sort === 'bestsellers') sortOption = { soldCount: -1 };
+    // ---------------------
+
     const skip = (pageNum - 1) * lim;
 
     const [total, books] = await Promise.all([
       Book.countDocuments(filter),
-      Book.find(filter).skip(skip).limit(lim).sort({ createdAt: -1 })
+      Book.find(filter)
+        .sort(sortOption) // <--- Use dynamic sort
+        .skip(skip)
+        .limit(lim)
     ]);
 
     res.json({ books, total, page: pageNum, limit: lim });

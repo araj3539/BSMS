@@ -14,6 +14,7 @@ export default function Home(){
     category: searchParams.get('category') || '' // 1. Add Category state
   });
 
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
   const [q, setQ] = useState(searchParams.get('q') || '');
   const [page, setPage] = useState(Number(searchParams.get('page') || 1));
   const [limit, setLimit] = useState(Number(searchParams.get('limit') || 12));
@@ -22,25 +23,26 @@ export default function Home(){
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  useEffect(()=> {
+useEffect(()=> {
     fetchBooks();
     
-    // 2. Sync Category to URL
     const params = { page, limit };
     if (q) params.q = q;
     if (filters.minPrice) params.minPrice = filters.minPrice;
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
     if (filters.minRating) params.minRating = filters.minRating;
-    if (filters.category) params.category = filters.category; // Sync here
+    if (filters.category) params.category = filters.category;
+    if (sortBy !== 'newest') params.sort = sortBy; // Sync sort to URL
     
     setSearchParams(params, { replace: true });
     
-  }, [page, limit, q, filters]);
+  }, [page, limit, q, filters, sortBy]); // <--- Add sortBy here
 
   async function fetchBooks() {
     setLoading(true);
     try {
-      const params = { page, limit, q, ...filters };
+      // 3. PASS SORT TO API
+      const params = { page, limit, q, ...filters, sort: sortBy };
       const res = await api.get('/books', { params });
       setBooks(res.data.books || []);
       setTotal(res.data.total || 0);
@@ -96,6 +98,18 @@ export default function Home(){
               <p className="text-sm text-slate-500 mt-1">Showing {books.length} of {total} results</p>
             </div>
             <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-500">Sort:</span>
+                <select 
+                  value={sortBy} 
+                  onChange={e=> { setSortBy(e.target.value); setPage(1); }} 
+                  className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                >
+                  <option value="newest">Newest Arrivals</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="top_rated">Top Rated</option>
+                  <option value="bestsellers">Best Sellers</option>
+                </select>
                 <span className="text-sm font-medium text-slate-500">Show:</span>
                 <select value={limit} onChange={e=> { setLimit(Number(e.target.value)); setPage(1); }} className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
                   <option value={8}>8</option>
