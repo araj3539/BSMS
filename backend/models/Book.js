@@ -1,20 +1,19 @@
 // backend/models/Book.js
 const mongoose = require('mongoose');
 
-// 1. Define a schema for replies
 const ReplySchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
   comment: { type: String, required: true },
 }, { timestamps: true });
 
-// 2. Update ReviewSchema to include replies
 const ReviewSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true },
   rating: { type: Number, required: true },
   comment: { type: String, required: true },
-  replies: [ReplySchema] // <-- New Field
+  isVerified: { type: Boolean, default: false }, // <--- NEW FIELD
+  replies: [ReplySchema]
 }, { timestamps: true });
 
 const BookSchema = new mongoose.Schema({

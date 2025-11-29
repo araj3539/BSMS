@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book');
+const Order = require('../models/Order');
 const { auth, isAdmin } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 
@@ -97,6 +98,46 @@ const validateBook = [
     next();
   }
 ];
+
+// POST /api/books/:id/reviews
+router.post('/:id/reviews', auth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const book = await Book.findById(req.params.id);
+    if (!book) return res.status(404).json({ msg: 'Book not found' });
+
+    const alreadyReviewed = book.reviews.find(
+      (r) => r.user.toString() === req.user.id.toString()
+    );
+    if (alreadyReviewed) return res.status(400).json({ msg: 'Already reviewed' });
+
+    // --- CHECK FOR VERIFIED PURCHASE ---
+    // Look for an order by this user, containing this book, that is paid/confirmed
+    const hasPurchased = await Order.findOne({
+      userId: req.user.id,
+      'items.bookId': req.params.id,
+      status: { $in: ['pending', 'processing', 'shipped', 'delivered'] } // Exclude 'payment_pending' or 'cancelled'
+    });
+
+    const review = {
+      name: req.user.name,
+      rating: Number(rating),
+      comment,
+      user: req.user.id,
+      isVerified: !!hasPurchased // <--- Set Flag
+    };
+
+    book.reviews.push(review);
+    book.numReviews = book.reviews.length;
+    book.rating = book.reviews.reduce((acc, item) => item.rating + acc, 0) / book.reviews.length;
+
+    await book.save();
+    res.status(201).json({ msg: 'Review added' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
 
 // POST /api/books (Single Create)
 router.post('/', auth, isAdmin, validateBook, async (req, res) => {
