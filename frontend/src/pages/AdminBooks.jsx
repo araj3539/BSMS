@@ -13,6 +13,10 @@ const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}
 export default function AdminBooks(){
   const [books, setBooks] = useState([]);
   
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 20;
+
   // State now controls the Modal visibility
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -21,21 +25,20 @@ export default function AdminBooks(){
   const user = getUser();
   const fileInputRef = useRef(null);
 
-  useEffect(()=>{
+  useEffect(() => {
     let mounted = true;
     if(!user || user.role !== 'admin') return;
-    fetchBooks();
     
-    // Close modal on Escape key
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') closeModal();
-    };
+    fetchBooks();
+
+    // Close modal on Escape
+    const handleEsc = (e) => { if (e.key === 'Escape') closeModal(); };
     window.addEventListener('keydown', handleEsc);
     return () => { 
       mounted = false; 
-      window.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('keydown', handleEsc); 
     };
-  }, [user]);
+  }, [user, page]); // <--- Add 'page' to dependency array
 
   function closeModal() {
     setEditing(null);
@@ -44,10 +47,14 @@ export default function AdminBooks(){
 
   async function fetchBooks(){
     try {
-      const res = await api.get('/books?limit=100'); 
+      // Pass page and limit to backend
+      const res = await api.get(`/books?limit=${LIMIT}&page=${page}`); 
       setBooks(res.data.books || []);
+      setTotal(res.data.total || 0); // Store total count
     } catch(e) { console.error(e); }
   }
+
+  const totalPages = Math.ceil(total / LIMIT);
 
   async function handleFileUpload(e) {
     const file = e.target.files[0];
@@ -211,6 +218,27 @@ export default function AdminBooks(){
           </div>
         ))}
       </div>
+
+        {/* 3. NEW: Add Pagination Controls at the bottom */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-12 mb-8">
+          <button 
+            onClick={() => setPage(p => Math.max(1, p - 1))} 
+            disabled={page === 1}
+            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-slate-600 font-medium">Page {page} of {totalPages}</span>
+          <button 
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+            disabled={page >= totalPages}
+            className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* --- MODERN MODAL POPUP --- */}
       {isModalOpen && (
