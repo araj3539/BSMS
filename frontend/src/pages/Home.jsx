@@ -3,7 +3,8 @@ import api from "../services/api";
 import BookCard from "../components/BookCard";
 import FilterSidebar from "../components/FilterSidebar";
 import { useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from "framer-motion";
+import SkeletonBookCard from "../components/SkeletonBookCard";
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -159,12 +160,16 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-20">
-              <div className="loader"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
+              {/* Show 'limit' number of skeletons to match expected results */}
+              {[...Array(limit)].map((_, i) => (
+                <SkeletonBookCard key={i} />
+              ))}
             </div>
           ) : (
             <>
               {books.length === 0 ? (
+                // ... (Your existing "No books found" UI) ...
                 <div className="text-center py-24 bg-white rounded-2xl border border-dashed border-slate-300">
                   <p className="text-slate-400 text-lg mb-2">
                     No books found matching your criteria.
@@ -185,6 +190,7 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
+                // ... (Your existing Book Grid) ...
                 <motion.div
                   layout
                   className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10"
@@ -196,7 +202,7 @@ export default function Home() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.3, delay: i * 0.05 }} // <--- THE STAGGER MAGIC
+                        transition={{ duration: 0.3, delay: i * 0.05 }}
                       >
                         <BookCard book={b} />
                       </motion.div>
