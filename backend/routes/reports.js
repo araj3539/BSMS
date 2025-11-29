@@ -20,6 +20,7 @@ router.get('/sales-by-day', auth, isAdmin, async (req,res)=>{
   res.json(agg);
 });
 
+// --- NEW ROUTE: Sales by Category ---
 router.get('/category-sales', auth, isAdmin, async (req, res) => {
   try {
     const stats = await Order.aggregate([
