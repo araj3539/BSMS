@@ -5,6 +5,7 @@ import FilterSidebar from "../components/FilterSidebar";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import SkeletonBookCard from "../components/SkeletonBookCard";
+import { useDebounce } from '../hooks/useDebounce';
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +19,7 @@ export default function Home() {
 
   const [sortBy, setSortBy] = useState(searchParams.get("sort") || "newest");
   const [q, setQ] = useState(searchParams.get("q") || "");
+  const debouncedQ = useDebounce(q, 500);
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
   const [limit, setLimit] = useState(Number(searchParams.get("limit") || 12));
 
@@ -29,7 +31,7 @@ export default function Home() {
     fetchBooks();
 
     const params = { page, limit };
-    if (q) params.q = q;
+    if (debouncedQ) params.q = debouncedQ;
     if (filters.minPrice) params.minPrice = filters.minPrice;
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
     if (filters.minRating) params.minRating = filters.minRating;
@@ -37,13 +39,14 @@ export default function Home() {
     if (sortBy !== "newest") params.sort = sortBy; // Sync sort to URL
 
     setSearchParams(params, { replace: true });
-  }, [page, limit, q, filters, sortBy]); // <--- Add sortBy here
+    fetchBooks();
+  }, [page, limit, debouncedQ, filters, sortBy]); // <--- Add sortBy here
 
   async function fetchBooks() {
     setLoading(true);
     try {
       // 3. PASS SORT TO API
-      const params = { page, limit, q, ...filters, sort: sortBy };
+      const params = { page, limit, q: debouncedQ, ...filters, sort: sortBy };
       const res = await api.get("/books", { params });
       setBooks(res.data.books || []);
       setTotal(res.data.total || 0);
