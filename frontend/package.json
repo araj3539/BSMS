@@ -13,12 +13,16 @@
     "@stripe/react-stripe-js": "^5.3.0",
     "@stripe/stripe-js": "^8.5.1",
     "axios": "^1.13.2",
-    "framer-motion": "^12.23.24",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.9.6",
-    "recharts": "^3.4.1"
+    "react-router-dom": "^7.9.6", 
+    "recharts": "^3.4.1",
+    "framer-motion": "^11.0.0" 
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
