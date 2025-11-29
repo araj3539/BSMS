@@ -27,7 +27,156 @@ const validateOrder = [
   }
 ];
 
-// --- NEW ROUTE: Download Invoice ---
+// --- 1. INITIALIZE CHECKOUT (Frontend calls this first) ---
+router.post('/checkout-init', auth, async (req, res) => {
+  try {
+    const { items, promotionCode, shippingAddress, saveAddress, addressLabel } = req.body;
+    const userId = req.user.id;
+
+    // A. Validate Books & Calculate Totals
+    const bookIds = items.map(it => it.bookId);
+    const books = await Book.find({ _id: { $in: bookIds } });
+    
+    let rawSubtotal = 0;
+    const orderItems = [];
+    
+    for (const it of items) {
+      const b = books.find(x => x._id.toString() === it.bookId);
+      if (!b) return res.status(400).json({ msg: 'Book not found' });
+      if (b.stock < it.qty) return res.status(400).json({ msg: `Insufficient stock: ${b.title}` });
+      
+      rawSubtotal += b.price * it.qty;
+      orderItems.push({ bookId: b._id, title: b.title, qty: it.qty, price: b.price });
+    }
+
+    // B. Apply Discount
+    let discount = 0;
+    let promoDetails = null;
+    const subtotal = round(rawSubtotal);
+    
+    if (promotionCode) {
+      const promo = await Promotion.findOne({ code: promotionCode, active: true });
+      if (promo && (!promo.expiresAt || promo.expiresAt > new Date()) && subtotal >= (promo.minOrderValue || 0)) {
+        discount = promo.type === 'percent' ? round(subtotal * (promo.value / 100)) : round(promo.value);
+        promoDetails = promo.code;
+      }
+    }
+    const totalAmount = round(Math.max(0, subtotal - discount));
+
+    // C. Create "Pending" Order in DB
+    const newOrder = new Order({
+      userId,
+      userEmail: req.user.email,
+      userIdName: req.user.name,
+      items: orderItems,
+      subtotal,
+      discount,
+      totalAmount,
+      promotionCode: promoDetails,
+      shippingAddress,
+      status: 'payment_pending' // <--- Important: Not confirmed yet
+    });
+    await newOrder.save();
+
+    // D. Update User Address (Optional: Do it now since user intent is clear)
+    if (saveAddress && shippingAddress) {
+        await User.findByIdAndUpdate(userId, { 
+            $addToSet: { addresses: { label: addressLabel || 'New', address: shippingAddress } } 
+        });
+    }
+
+    // E. Create Stripe Intent with Order ID in Metadata
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(totalAmount * 100),
+      currency: 'inr',
+      metadata: { 
+        orderId: newOrder._id.toString() // <--- THE KEY LINK
+      }
+    });
+
+    res.json({ 
+      clientSecret: paymentIntent.client_secret, 
+      orderId: newOrder._id 
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error during checkout init' });
+  }
+});
+
+// --- 2. STRIPE WEBHOOK (Stripe calls this) ---
+router.post('/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    // Verify the event came from Stripe
+    event = stripe.webhooks.constructEvent(
+        req.body, 
+        sig, 
+        process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    const { orderId } = paymentIntent.metadata;
+
+    console.log(`💰 Payment succeeded for Order ${orderId}`);
+
+    try {
+        const order = await Order.findById(orderId);
+        if(order && order.status === 'payment_pending') {
+            
+            // 1. Update Status
+            order.status = 'pending'; // Confirmed!
+            order.paymentId = paymentIntent.id;
+            await order.save();
+
+            // 2. Deduct Stock (Moved here so we only deduct if paid)
+            const bulkOps = order.items.map(item => ({
+                updateOne: { 
+                    filter: { _id: item.bookId }, 
+                    update: { $inc: { stock: -item.qty, soldCount: item.qty } } 
+                }
+            }));
+            await Book.bulkWrite(bulkOps);
+
+            // 3. Send Email
+            // ... (Your existing email logic goes here) ...
+            try {
+                const invoiceBuffer = await generateInvoiceBuffer(order);
+                const html = getEmailTemplate({
+                    title: `Order Confirmed!`,
+                    message: "Thank you for your purchase.",
+                    orderId: order._id,
+                    items: order.items,
+                    subtotal: order.subtotal,
+                    discount: order.discount,
+                    total: order.totalAmount,
+                    status: 'Paid'
+                });
+                await sendEmail({ 
+                    to: order.userEmail, 
+                    subject: `Order #${order._id} Confirmed`, 
+                    html,
+                    attachments: [{ filename: `Invoice.pdf`, content: invoiceBuffer }]
+                });
+            } catch(e) { console.error("Email fail", e); }
+        }
+    } catch (err) {
+        console.error('Error processing webhook order:', err);
+    }
+  }
+
+  res.send(); // Acknowledge receipt
+});
+
 router.get('/:id/invoice', auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -42,110 +191,6 @@ router.get('/:id/invoice', auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });
-  }
-});
-
-// POST / - Place Order (Updated)
-router.post('/', auth, validateOrder, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { email, name } = req.user;
-    const { items, promotionCode, paymentId, shippingAddress, saveAddress, addressLabel } = req.body; 
-
-    // ... (Existing logic: Fetch books, calculate subtotal/discount/total) ...
-    const bookIds = items.map(it => it.bookId);
-    const books = await Book.find({ _id: { $in: bookIds } });
-
-    let rawSubtotal = 0;
-    const orderItems = [];
-    for (const it of items) {
-      const b = books.find(x => x._id.toString() === it.bookId);
-      if (!b) return res.status(400).json({ msg: 'Book not found' });
-      if (it.qty > b.stock) return res.status(400).json({ msg: `Insufficient stock for ${b.title}` });
-      
-      const itemTotal = b.price * it.qty;
-      rawSubtotal += itemTotal;
-      
-      orderItems.push({ bookId: b._id, title: b.title, qty: it.qty, price: b.price });
-    }
-
-    let discount = 0;
-    const subtotal = round(rawSubtotal);
-    let promo = null;
-
-    if (promotionCode) {
-      promo = await Promotion.findOne({ code: promotionCode, active: true });
-      if (promo && (!promo.expiresAt || promo.expiresAt > new Date()) && subtotal >= (promo.minOrderValue || 0)) {
-        if (promo.type === 'percent') discount = round(subtotal * (promo.value / 100));
-        else discount = round(promo.value);
-      }
-    }
-    const totalAmount = round(Math.max(0, subtotal - discount));
-
-    // ... (Existing Stripe & Stock Logic) ...
-    try {
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentId);
-      if (paymentIntent.status !== 'succeeded') return res.status(400).json({ msg: 'Payment verification failed' });
-    } catch (stripeErr) { return res.status(400).json({ msg: 'Payment verification failed' }); }
-
-    const bulkOps = books.map(b => {
-      const qty = items.find(it => it.bookId === b._id.toString()).qty;
-      return { updateOne: { filter: { _id: b._id }, update: { $inc: { stock: -qty, soldCount: qty } } } };
-    });
-    await Book.bulkWrite(bulkOps);
-
-    if (saveAddress && shippingAddress) {
-      const user = await User.findById(userId);
-      if(user && !user.addresses.some(a => a.address.trim() === shippingAddress.trim())) {
-          user.addresses.push({ label: addressLabel || 'Checkout Address', address: shippingAddress });
-          await user.save();
-      }
-    }
-
-    const order = new Order({
-      userId, userEmail: email, userIdName: name, items: orderItems,
-      subtotal, discount, totalAmount, promotionCode: promo ? promo.code : null,
-      paymentId, shippingAddress
-    });
-    await order.save();
-
-    // --- UPDATED: Generate Invoice & Attach to Email ---
-    try {
-      // 1. Generate PDF Buffer
-      const invoiceBuffer = await generateInvoiceBuffer(order);
-
-      // 2. Get HTML Content
-      const html = getEmailTemplate({
-        title: `Thank you for your order, ${name}!`,
-        message: "We have received your order. Please find your invoice attached below.",
-        orderId: order._id,
-        items: orderItems,
-        subtotal: Number(subtotal),
-        discount: Number(discount),
-        total: Number(totalAmount),
-        status: 'Pending'
-      });
-
-      // 3. Send Email with Attachment
-      await sendEmail({ 
-        to: email, 
-        subject: `Order Confirmation #${order._id}`, 
-        html,
-        attachments: [
-          {
-            filename: `Invoice-${order._id}.pdf`,
-            content: invoiceBuffer,
-            contentType: 'application/pdf'
-          }
-        ]
-      });
-    } catch (emailErr) { console.error('Failed to send email/invoice:', emailErr); }
-    
-    res.json({ order });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'err', err: err.message });
   }
 });
 
@@ -199,42 +244,6 @@ router.put('/:id/status', auth, isAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });
-  }
-});
-
-router.post('/create-payment-intent', auth, async (req, res) => {
-  try {
-    const { items, promotionCode } = req.body;
-    const bookIds = items.map(it => it.bookId);
-    const books = await Book.find({ _id: { $in: bookIds } });
-
-    let subtotal = 0;
-    for (const it of items) {
-      const b = books.find(x => x._id.toString() === it.bookId);
-      if (!b) return res.status(400).json({ msg: 'Book not found' });
-      subtotal += b.price * it.qty;
-    }
-
-    let discount = 0;
-    if (promotionCode) {
-      const promo = await Promotion.findOne({ code: promotionCode, active: true });
-      if (promo && (!promo.expiresAt || promo.expiresAt > new Date()) && subtotal >= (promo.minOrderValue || 0)) {
-        if (promo.type === 'percent') discount = round(subtotal * (promo.value / 100));
-        else discount = round(promo.value);
-      }
-    }
-    const totalAmount = round(Math.max(0, subtotal - discount));
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(totalAmount * 100), 
-      currency: 'inr',
-      automatic_payment_methods: { enabled: true },
-    });
-
-    res.json({ clientSecret: paymentIntent.client_secret });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Payment initialization failed' });
   }
 });
 

@@ -53,6 +53,8 @@ export default function Checkout(){
   const [readyToPay, setReadyToPay] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [tempOrderId, setTempOrderId] = useState(null);
+
   const cartKey = user ? `cart_${user._id}` : 'cart_guest';
 
   useEffect(()=> {
@@ -127,49 +129,37 @@ export default function Checkout(){
   }
 
   async function initPayment() {
-    if(cart.length === 0) return toast.error('Cart is empty');
-    if(!shippingAddress.trim()) return toast.error('Please enter a shipping address');
+  // ... validations ...
+  try {
+    const items = cart.map(it => ({ bookId: it.bookId, qty: it.qty }));
 
-    try {
-      const items = cart.map(it=> ({ bookId: it.bookId, qty: it.qty }));
-      const payload = { items, promotionCode: promoInfo ? promoInfo.promo.code : (promoCode || '') };
-      const res = await api.post('/orders/create-payment-intent', payload);
-      setClientSecret(res.data.clientSecret);
-      setReadyToPay(true);
-    } catch (err) {
-      toast.error('Failed to initialize payment');
-    }
+    // Call the NEW init endpoint
+    const res = await api.post('/orders/checkout-init', { 
+        items, 
+        promotionCode: promoInfo ? promoInfo.promo.code : '',
+        shippingAddress,
+        saveAddress,
+        addressLabel
+    });
+
+    setClientSecret(res.data.clientSecret);
+    setTempOrderId(res.data.orderId); // Store the ID for redirect
+    setReadyToPay(true);
+  } catch (err) {
+    toast.error(err.response?.data?.msg || 'Failed to initialize');
   }
+}
 
   async function handlePaymentSuccess(paymentId) {
-    try{
-      const items = cart.map(it=> ({ bookId: it.bookId, qty: it.qty }));
-      const payload = { 
-        items, 
-        promotionCode: promoInfo ? promoInfo.promo.code : (promoCode || ''),
-        paymentId,
-        shippingAddress,
-        saveAddress, 
-        addressLabel: addressLabel || 'Checkout Address'
-      };
-      
-      const res = await api.post('/orders', payload);
-      
-      if (saveAddress) {
-        try { const userRes = await api.get('/auth/me'); updateProfile(userRes.data.user); } catch (err) {}
-      }
+  // We do NOT create the order here anymore. The Webhook does it.
+  // We just clear cart and redirect.
 
-      localStorage.removeItem(cartKey);
-      setTimeout(() => {
-        toast.success('Order placed successfully!');
-        nav(`/order/${res.data.order._id}`);
-      }, 1500);
-    }catch(err){
-      console.error(err);
-      toast.error(err.response?.data?.msg || 'Error placing order');
-      setIsProcessing(false); 
-    }
-  }
+  localStorage.removeItem(cartKey);
+  toast.success('Payment Successful!');
+
+  // Navigate to the order we created in initPayment
+  nav(`/order/${tempOrderId}`);
+}
 
   function updateQty(i, qty){
     const newQty = Math.max(1, Math.floor(Number(qty)));

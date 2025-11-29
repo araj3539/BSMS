@@ -17,7 +17,7 @@ const OrderSchema = new mongoose.Schema({
   discount: { type: Number, default: 0 },
   totalAmount: Number,
   promotionCode: { type: String, default: null },
-  status: { type: String, enum: ['pending','processing','shipped','delivered','cancelled'], default: 'pending' },
+  status: { type: String, enum: ['pending','processing','shipped','delivered','cancelled'], default: 'payment_pending' },
   shippingAddress: String,
   paymentId: { type: String } // <--- ADD THIS LINE
 }, { timestamps: true });
