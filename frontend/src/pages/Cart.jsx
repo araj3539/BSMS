@@ -81,12 +81,14 @@ export default function Cart(){
     item.qty = newQty; 
     setCart(c); 
     localStorage.setItem(cartKey, JSON.stringify(c));
+    if (user) syncCart(user._id, c);
   }
 
   function remove(i){
     const c = cart.filter((_, idx)=> idx !== i); 
     setCart(c); 
     localStorage.setItem(cartKey, JSON.stringify(c));
+    if (user) syncCart(user._id, c);
   }
   
   function checkout(){ 

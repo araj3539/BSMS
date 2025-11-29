@@ -7,6 +7,15 @@ const AddressSchema = new mongoose.Schema({
   address: { type: String, required: true }
 });
 
+// --- NEW: Cart Item Schema ---
+const CartItemSchema = new mongoose.Schema({
+  bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book', required: true },
+  title: String,
+  price: Number,
+  qty: { type: Number, default: 1 },
+  coverImageUrl: String
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -15,7 +24,9 @@ const UserSchema = new mongoose.Schema({
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
   wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Book' }],
-  addresses: [AddressSchema]
+  addresses: [AddressSchema],
+  
+  cart: [CartItemSchema] // <--- ADD THIS LINE
 }, { timestamps: true });
 
 // hash password when saving if modified

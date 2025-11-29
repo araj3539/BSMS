@@ -31,9 +31,10 @@ export default function BookDetail() {
     const existing = cart.find((ci) => ci.bookId === book._id);
     
     if (existing) existing.qty += qty;
-    else cart.push({ bookId: book._id, title: book.title, price: book.price, qty });
+    else cart.push({ bookId: book._id, title: book.title, price: book.price,coverImageUrl: book.coverImageUrl, qty });
     
     localStorage.setItem(cartKey, JSON.stringify(cart));
+    if (user) syncCart(user._id, cart);
     nav("/cart");
   }
 

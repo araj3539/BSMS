@@ -229,4 +229,20 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+router.put('/cart', auth, async (req, res) => {
+  try {
+    const { cart } = req.body;
+    // Overwrite the cart with the new frontend state
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      { cart }, 
+      { new: true }
+    );
+    res.json({ cart: user.cart });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
 module.exports = router;
