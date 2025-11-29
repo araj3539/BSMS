@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
 import RatingStars from "./RatingStars"; 
+import { motion } from "framer-motion";
 
 export default function BookCard({ book }) {
   const { user, updateProfile } = useAuth();
@@ -26,7 +27,14 @@ export default function BookCard({ book }) {
   }
 
   return (
-    <div className={`group relative bg-white rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 overflow-hidden flex flex-col h-full ${isOutOfStock ? 'opacity-75' : ''}`}>
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.3 }}
+      className={`group relative bg-white rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 overflow-hidden flex flex-col h-full ${isOutOfStock ? 'opacity-75' : ''}`}
+    >
       
       {/* Image Container */}
       <div className="relative w-full aspect-[2/3] bg-slate-100 overflow-hidden">
@@ -35,10 +43,10 @@ export default function BookCard({ book }) {
               src={book.coverImageUrl || "/Placeholder.jpg"}
               alt={book.title}
               className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${isOutOfStock ? 'grayscale filter' : ''}`}
+              loading="lazy" // <--- Modern: Native Lazy Loading
             />
         </Link>
         
-        {/* Floating Wishlist Button */}
         <button
           onClick={toggleWishlist}
           className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur rounded-full shadow-sm hover:bg-white text-slate-400 hover:text-red-500 transition-colors z-10"
@@ -48,7 +56,6 @@ export default function BookCard({ book }) {
           </svg>
         </button>
         
-        {/* --- OUT OF STOCK OVERLAY --- */}
         {isOutOfStock && (
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center z-0 pointer-events-none">
                 <span className="bg-slate-900 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest shadow-lg transform -rotate-12 border border-white/20">
@@ -80,6 +87,6 @@ export default function BookCard({ book }) {
             </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

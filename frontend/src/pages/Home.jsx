@@ -184,11 +184,24 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
-                  {books.map((b) => (
-                    <BookCard key={b._id} book={b} />
-                  ))}
-                </div>
+                <motion.div
+                  layout
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10"
+                >
+                  <AnimatePresence>
+                    {books.map((b, i) => (
+                      <motion.div
+                        key={b._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.3, delay: i * 0.05 }} // <--- THE STAGGER MAGIC
+                      >
+                        <BookCard book={b} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
               )}
 
               {totalPages > 1 && (
