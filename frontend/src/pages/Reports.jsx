@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  PieChart, Pie, Cell,
   ResponsiveContainer,
 } from "recharts";
 
@@ -33,10 +34,12 @@ function fillMissingDates(data, days) {
 
 export default function Reports() {
   const [salesByDay, setSalesByDay] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
   const [days, setDays] = useState(30); // State for time range
 
   useEffect(() => {
     fetchReport(days);
+    fetchCategoryStats();
   }, [days]);
 
   function fetchReport(d) {
@@ -45,6 +48,14 @@ export default function Reports() {
       .then((r) => setSalesByDay(r.data))
       .catch(() => {});
   }
+
+  function fetchCategoryStats() {
+    api.get('/reports/category-sales')
+       .then(r => setCategoryData(r.data))
+       .catch(err => console.error(err));
+  }
+
+  const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   // Calculate totals for the summary cards
   const totalRevenue = salesByDay.reduce((acc, curr) => acc + curr.total, 0);
@@ -110,6 +121,54 @@ export default function Reports() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      <div className="grid md:grid-cols-2 gap-8">
+        
+        {/* Left: The Chart */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
+          <h4 className="font-serif text-lg font-bold text-slate-800 mb-2">Sales by Category</h4>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={categoryData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60} // Makes it a "Donut" chart (modern look)
+                outerRadius={100}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {categoryData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip 
+                formatter={(value) => `₹${value.toLocaleString()}`}
+                contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+              />
+              <Legend verticalAlign="bottom" height={36} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Right: The Details List */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96 overflow-y-auto custom-scrollbar">
+           <h4 className="font-serif text-lg font-bold text-slate-800 mb-4">Category Breakdown</h4>
+           <div className="space-y-4">
+              {categoryData.map((cat, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
+                   <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                      <span className="font-medium text-slate-700">{cat.name || 'Uncategorized'}</span>
+                   </div>
+                   <span className="font-bold text-slate-900">₹{cat.value.toLocaleString()}</span>
+                </div>
+              ))}
+              {categoryData.length === 0 && <p className="text-slate-400 text-center py-10">No sales data yet.</p>}
+           </div>
+        </div>
+      </div>      
     </div>
+    
   );
 }
