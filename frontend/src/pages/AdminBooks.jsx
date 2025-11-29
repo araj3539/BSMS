@@ -11,11 +11,9 @@ const CLOUDINARY_CLOUD_NAME = "dnq0yso32";
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_upload_preset";
 const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
 
-
-const debouncedQ = useDebounce(q, 500);
-
 export default function AdminBooks() {
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 500);
   const [books, setBooks] = useState([]);
 
   const [page, setPage] = useState(1);
