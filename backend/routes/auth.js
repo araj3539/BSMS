@@ -13,6 +13,10 @@ const { sendEmail } = require('../utils/email');
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key';
 const TOKEN_EXPIRES = '7d';
 
+// --- HELPER: Dynamic Client URL ---
+// Uses the Render environment variable if available, otherwise defaults to local
+const getClientUrl = () => process.env.CLIENT_URL || 'http://localhost:5173';
+
 // --- HELPER: Sanitize User Object ---
 function getSafeUser(user) {
   const u = user.toObject();
@@ -116,18 +120,21 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; 
     await user.save();
 
-    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+    // Use dynamic Client URL
+    const resetUrl = `${getClientUrl()}/reset-password/${resetToken}`;
     
-    // Use the shared helper function
     await sendEmail({
       to: user.email,
       subject: "Password Reset Request",
-      html: `<p>You requested a password reset.</p>
-             <p>Click this link to reset your password:</p>
-             <a href="${resetUrl}">${resetUrl}</a>`
+      html: `
+        <p>You requested a password reset for your BookShop account.</p>
+        <p>Click the link below to set a new password:</p>
+        <a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0;">Reset Password</a>
+        <p style="font-size: 12px; color: #666;">If you didn't ask for this, you can ignore this email.</p>
+      `
     });
 
-    res.json({ msg: 'Email sent! Check server console for preview link.' });
+    res.json({ msg: 'Email sent!' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });
@@ -232,7 +239,6 @@ router.get('/me', auth, async (req, res) => {
 router.put('/cart', auth, async (req, res) => {
   try {
     const { cart } = req.body;
-    // Overwrite the cart with the new frontend state
     const user = await User.findByIdAndUpdate(
       req.user.id, 
       { cart }, 
