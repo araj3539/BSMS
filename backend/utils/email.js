@@ -113,8 +113,12 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
         return null;
     }
 
+    // HARDCODE YOUR VERIFIED SENDER EMAIL HERE
+    // (This must be the email you used to create your Brevo account)
+    const SENDER_EMAIL = 'bsms.bookshop.official@gmail.com'; 
+
     const info = await transport.sendMail({
-      from: `"BookShop" <${process.env.SMTP_USER || 'no-reply@bookshop.local'}>`,
+      from: `"BookShop" <${SENDER_EMAIL}>`, // <--- CHANGED THIS
       to,
       subject,
       html,
