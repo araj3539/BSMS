@@ -1,32 +1,32 @@
 const nodemailer = require('nodemailer');
 
-// --- 1. Create Transporter (Smart) ---
+// --- 1. Create Transporter (Flexible Configuration) ---
 async function createTransporter() {
-  // Option A: Real Email (If variables exist)
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    console.log(`🔌 Connecting to Gmail via Port 587 for: ${process.env.SMTP_USER}`);
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (user && pass) {
+    console.log(`🔌 Connecting to ${host}:${port} for ${user}...`);
     
     return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,              // <--- CHANGED: Use Port 587
-      secure: false,          // <--- CHANGED: Must be FALSE for Port 587
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+      host: host,
+      port: port,
+      secure: port === 465, // True only for 465, false for 587/2525
+      auth: { user, pass },
       tls: {
-        ciphers: 'SSLv3',     // Help with handshake compatibility
+        ciphers: 'SSLv3',
         rejectUnauthorized: false
       },
-      // --- DEBUGGING BLOCKS ---
-      // These will print detailed logs to your Render console
-      logger: true,
-      debug: true,
-      connectionTimeout: 10000 // 10 seconds timeout
+      // Increase timeouts for cloud environments
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000 
     });
   }
 
-  // Option B: Safe Fallback (Mock Mode)
+  // Safe Fallback (Mock Mode)
   console.log("⚠️ SMTP_USER/PASS not found. Email sending is SIMULATED.");
   return {
     sendMail: async (opts) => {
@@ -36,7 +36,7 @@ async function createTransporter() {
   };
 }
 
-// --- 2. HTML Template Generator ---
+// --- 2. HTML Template Generator (Unchanged) ---
 function getEmailTemplate({ title, message, orderId, items, subtotal, discount, total, status }) {
   const itemsHtml = items ? items.map(it => `
     <tr>
@@ -104,9 +104,13 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
   try {
     const transport = await createTransporter();
     
-    // Verify connection configuration (DEBUG)
-    if (transport.verify) {
-        await transport.verify().catch(console.error);
+    // Verify connection first
+    try {
+        await transport.verify();
+        console.log("✅ SMTP Connected successfully");
+    } catch (verifyErr) {
+        console.error("❌ SMTP Connection Failed:", verifyErr.message);
+        return null;
     }
 
     const info = await transport.sendMail({
@@ -116,11 +120,10 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
       html,
       attachments
     });
-    console.log("✅ Message sent: %s", info.messageId);
+    console.log("📧 Message sent: %s", info.messageId);
     return info;
   } catch (err) {
     console.error("❌ Email error:", err.message);
-    // Don't return null, allows caller to continue
     return null;
   }
 }
