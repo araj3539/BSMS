@@ -7,10 +7,11 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import PaymentForm from '../components/PaymentForm';
 import { useAuth } from '../context/AuthContext';
+import { syncCart } from '../utils/cart'; // <--- IMPORT THIS
 
 const stripePromise = loadStripe('pk_test_51SUo4cEBSigHVgLU4DOyQhwUJpLjbnYBsd6UspdP8v9yjQQV2xXalrMVPxd4w864foMUkrihLTfGAuvGrrQmTWHO00OH7PW3kO'); 
 
-// Utility: Round to 2 decimal places to fix floating point errors (e.g., 719.1000004 -> 719.1)
+// Utility: Round to 2 decimal places
 const round = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
 function ProcessingScreen() {
@@ -67,21 +68,19 @@ export default function Checkout(){
     if(location.state?.promoCode && cart.length > 0) {
         checkPromo(location.state.promoCode); 
     }
-  }, [cart.length]); // Run once on load if cart has items
+  }, [cart.length]);
 
   // 2. CALCULATE TOTALS (Live)
   const subtotal = round(cart.reduce((s, it)=> s + (it.price || 0) * (it.qty || 0), 0));
   
-  // 3. WATCH FOR CART CHANGES (The Fix)
+  // 3. WATCH FOR CART CHANGES
   useEffect(() => {
     if (cart.length === 0 || subtotal === 0) {
-        // Cart cleared? Reset EVERYTHING.
         setPromoInfo(null);
         setPromoErr('');
         setClientSecret('');
         setReadyToPay(false);
     } else if (promoInfo) {
-        // Cart changed but items remain? Re-validate promo to update discount math
         checkPromo(promoInfo.promo.code);
     }
   }, [cart, subtotal]); 
@@ -116,7 +115,7 @@ export default function Checkout(){
       setPromoInfo(r.data);
       setPromoCode(codeToCheck); 
       setPromoErr('');
-      setReadyToPay(false); // Reset payment if price changes
+      setReadyToPay(false);
     }catch(err){
       setPromoInfo(null);
       setPromoErr(err.response?.data?.msg || 'Invalid code');
@@ -129,37 +128,44 @@ export default function Checkout(){
   }
 
   async function initPayment() {
-  // ... validations ...
-  try {
-    const items = cart.map(it => ({ bookId: it.bookId, qty: it.qty }));
+    try {
+      const items = cart.map(it => ({ bookId: it.bookId, qty: it.qty }));
 
-    // Call the NEW init endpoint
-    const res = await api.post('/orders/checkout-init', { 
-        items, 
-        promotionCode: promoInfo ? promoInfo.promo.code : '',
-        shippingAddress,
-        saveAddress,
-        addressLabel
-    });
+      const res = await api.post('/orders/checkout-init', { 
+          items, 
+          promotionCode: promoInfo ? promoInfo.promo.code : '',
+          shippingAddress,
+          saveAddress,
+          addressLabel
+      });
 
-    setClientSecret(res.data.clientSecret);
-    setTempOrderId(res.data.orderId); // Store the ID for redirect
-    setReadyToPay(true);
-  } catch (err) {
-    toast.error(err.response?.data?.msg || 'Failed to initialize');
+      setClientSecret(res.data.clientSecret);
+      setTempOrderId(res.data.orderId);
+      setReadyToPay(true);
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Failed to initialize');
+    }
   }
-}
 
+  // --- FIXED HANDLER ---
   async function handlePaymentSuccess(paymentId) {
-  // We do NOT create the order here anymore. The Webhook does it.
-  // We just clear cart and redirect.
+    // 1. Clear Local Storage (Immediate)
+    localStorage.removeItem(cartKey);
+    setCart([]); 
 
-  localStorage.removeItem(cartKey);
-  toast.success('Payment Successful!');
+    // 2. Clear Database Cart & Context (Persistent Fix)
+    if (user) {
+        try {
+            await syncCart(user._id, []); // Update DB
+            updateProfile({ ...user, cart: [] }); // Update Auth Context
+        } catch (e) {
+            console.error("Failed to clear DB cart", e);
+        }
+    }
 
-  // Navigate to the order we created in initPayment
-  nav(`/order/${tempOrderId}`);
-}
+    toast.success('Payment Successful!');
+    nav(`/order/${tempOrderId}`);
+  }
 
   function updateQty(i, qty){
     const newQty = Math.max(1, Math.floor(Number(qty)));
