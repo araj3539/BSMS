@@ -2,19 +2,24 @@ const nodemailer = require('nodemailer');
 
 // --- 1. Create Transporter (Smart) ---
 async function createTransporter() {
-  // Option A: Real Email (If variables exist in Render)
+  // Option A: Real Email (If variables exist)
   if (process.env.SMTP_USER && process.env.SMTP_PASS) {
     return nodemailer.createTransport({
-      service: 'gmail', // Easiest for MERN stack
+      host: 'smtp.gmail.com', // Explicit host
+      port: 465,              // Explicit port for SSL
+      secure: true,           // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Fix for some cloud environments causing timeouts
+      tls: {
+        rejectUnauthorized: false 
+      }
     });
   }
 
   // Option B: Safe Fallback (Mock Mode)
-  // This prevents the "Connection timeout" error if you haven't set up email yet.
   console.log("⚠️ SMTP_USER/PASS not found. Email sending is SIMULATED (Check logs).");
   return {
     sendMail: async (opts) => {
@@ -30,7 +35,7 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
     <tr>
       <td style="padding: 8px; border-bottom: 1px solid #eee;">${it.title}</td>
       <td style="padding: 8px; border-bottom: 1px solid #eee;">x${it.qty}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #eee;">₹${it.price * it.qty}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee;">₹${Number(it.price * it.qty).toFixed(2)}</td>
     </tr>
   `).join('') : '';
 
@@ -102,7 +107,6 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
     return info;
   } catch (err) {
     console.error("Email error:", err.message);
-    // Don't return null, allows caller to continue
     return null;
   }
 }
