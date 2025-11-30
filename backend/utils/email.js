@@ -4,26 +4,33 @@ const nodemailer = require('nodemailer');
 async function createTransporter() {
   // Option A: Real Email (If variables exist)
   if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    console.log(`🔌 Connecting to Gmail via Port 587 for: ${process.env.SMTP_USER}`);
+    
     return nodemailer.createTransport({
-      host: 'smtp.gmail.com', // Explicit host
-      port: 465,              // Explicit port for SSL
-      secure: true,           // true for 465, false for other ports
+      host: 'smtp.gmail.com',
+      port: 587,              // <--- CHANGED: Use Port 587
+      secure: false,          // <--- CHANGED: Must be FALSE for Port 587
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
-      // Fix for some cloud environments causing timeouts
       tls: {
-        rejectUnauthorized: false 
-      }
+        ciphers: 'SSLv3',     // Help with handshake compatibility
+        rejectUnauthorized: false
+      },
+      // --- DEBUGGING BLOCKS ---
+      // These will print detailed logs to your Render console
+      logger: true,
+      debug: true,
+      connectionTimeout: 10000 // 10 seconds timeout
     });
   }
 
   // Option B: Safe Fallback (Mock Mode)
-  console.log("⚠️ SMTP_USER/PASS not found. Email sending is SIMULATED (Check logs).");
+  console.log("⚠️ SMTP_USER/PASS not found. Email sending is SIMULATED.");
   return {
     sendMail: async (opts) => {
-      console.log(`\n--- [MOCK EMAIL SENT] ---\nTo: ${opts.to}\nSubject: ${opts.subject}\nAttachments: ${opts.attachments?.length || 0}\n-------------------------\n`);
+      console.log(`\n--- [MOCK EMAIL] ---\nTo: ${opts.to}\nSubject: ${opts.subject}\n--------------------\n`);
       return { messageId: 'mock-id', preview: 'simulated' };
     }
   };
@@ -96,6 +103,12 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
 async function sendEmail({ to, subject, html, attachments = [] }) {
   try {
     const transport = await createTransporter();
+    
+    // Verify connection configuration (DEBUG)
+    if (transport.verify) {
+        await transport.verify().catch(console.error);
+    }
+
     const info = await transport.sendMail({
       from: `"BookShop" <${process.env.SMTP_USER || 'no-reply@bookshop.local'}>`,
       to,
@@ -103,10 +116,11 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
       html,
       attachments
     });
-    console.log("Message sent: %s", info.messageId);
+    console.log("✅ Message sent: %s", info.messageId);
     return info;
   } catch (err) {
-    console.error("Email error:", err.message);
+    console.error("❌ Email error:", err.message);
+    // Don't return null, allows caller to continue
     return null;
   }
 }
