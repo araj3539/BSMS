@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const logger = require('./logger');
 
 // Import Routes
 const authRoutes = require('./routes/auth');
@@ -17,25 +18,9 @@ app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
 
 // --- 2. GLOBAL MIDDLEWARE (CORS) ---
 // We explicitly allow your Vercel frontend to prevent "Block" errors
-const allowedOrigins = [
-  "https://bsms-zeta.vercel.app", 
-  "http://localhost:5173"
-];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      // Optional: You can un-comment the error below to be strict, 
-      // but returning true is safer for debugging if you have multiple domains.
-      // return callback(new Error('CORS policy violation'), false);
-      return callback(null, true); 
-    }
-    return callback(null, true);
-  },
-  credentials: true
-}));
+const allowedOrigin = process.env.FRONTEND_ORIGIN || 'https://bsms-zeta.vercel.app';
+app.use(cors({ origin: allowedOrigin }));
 
 // --- 3. JSON PARSING ---
 // Parses JSON for all routes EXCEPT the webhook (handled above)
@@ -61,4 +46,4 @@ app.get('/ping', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, ()=> console.log(`Server listening on ${PORT}`));
+app.listen(PORT, () => logger.info('Server listening on %d', PORT));
