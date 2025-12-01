@@ -34,29 +34,19 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // --- 3. GLOBAL MIDDLEWARE (CORS) - UPDATED ---
+const allowed = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, webhooks)
     if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      "https://bsms-zeta.vercel.app", 
-      "http://localhost:5173",
-      "http://localhost:5174" // Common alternate local port
-    ];
-
-    // Check exact match
-    if (allowedOrigins.includes(origin)) {
+    if (allowed.includes(origin)) return callback(null, true);
+    
+    // Allow Vercel previews dynamically
+    if (process.env.ALLOW_VERCEL_PREVIEWS === 'true' && origin.endsWith('.vercel.app')) {
       return callback(null, true);
     }
 
-    // Check for ANY Vercel deployment (Previews & Production)
-    if (origin.endsWith(".vercel.app")) {
-      return callback(null, true);
-    }
-
-    // Log the blocked origin so you can debug it
-    console.error("❌ CORS Blocked Origin:", origin);
+    console.error('❌ CORS Blocked Origin:', origin);
     return callback(new Error('CORS policy violation: Origin not allowed'), false);
   },
   credentials: true
