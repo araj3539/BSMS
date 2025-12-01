@@ -1,171 +1,172 @@
+// src/pages/AdminOrders.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useDebounce } from '../hooks/useDebounce'; // <--- Import Hook
+import { useDebounce } from '../hooks/useDebounce';
+import { motion } from 'framer-motion';
 
 const STATUS_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  processing: 'bg-blue-100 text-blue-800 border-blue-200',
-  shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  delivered: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  cancelled: 'bg-red-100 text-red-800 border-red-200'
+  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+  processing: 'bg-blue-100 text-blue-700 border-blue-200',
+  shipped: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  cancelled: 'bg-red-100 text-red-700 border-red-200'
 };
 
 export default function AdminOrders(){
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // Search & Filter State
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const limit = 20;
-
-  const debouncedQ = useDebounce(q, 500); // 500ms delay
-  const nav = useNavigate();
-
-  // Modal State
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  
+  const [selectedOrder, setSelectedOrder] = useState(null); // For Status Modal
   const [newStatus, setNewStatus] = useState('');
 
-  // Fetch when params change
-  useEffect(() => { 
-    fetchOrders(); 
-  }, [page, statusFilter, debouncedQ]);
+  const debouncedQ = useDebounce(q, 500);
+  const nav = useNavigate();
+  const limit = 20;
+
+  useEffect(() => { fetchOrders(); }, [page, statusFilter, debouncedQ]);
 
   async function fetchOrders(){
     setLoading(true);
     try{
-      const params = { page, limit, status: statusFilter, q: debouncedQ };
-      const r = await api.get('/orders', { params });
-      
-      // Handle both formats (Admin gets object, User gets array - but this is Admin page)
+      const r = await api.get('/orders', { params: { page, limit, status: statusFilter, q: debouncedQ } });
       if (r.data.orders) {
         setOrders(r.data.orders);
         setTotal(r.data.total);
-      } else {
-        setOrders(r.data); // Fallback
       }
-    } catch(err){
-      toast.error('Failed to load orders');
-    } finally { setLoading(false); }
-  }
-
-  function openStatusModal(order) {
-    setSelectedOrder(order);
-    setNewStatus(order.status);
+    } catch(err){ toast.error('Failed to load orders'); } 
+    finally { setLoading(false); }
   }
 
   async function updateStatus(){
     if(!selectedOrder) return;
     try{
       await api.put(`/orders/${selectedOrder._id}/status`, { status: newStatus });
-      toast.success('Order updated');
+      toast.success('Status Updated');
       setSelectedOrder(null);
       fetchOrders();
-    }catch(err){
-      toast.error('Failed to update');
-    }
+    }catch(err){ toast.error('Failed to update'); }
   }
 
-  const totalPages = Math.ceil(total / limit);
-
   return (
-    <div className="relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* --- Header --- */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-            <h2 className="text-2xl font-serif font-bold text-slate-900">Orders</h2>
-            <p className="text-slate-500 text-sm mt-1">Manage {total} orders.</p>
+            <h2 className="text-3xl font-serif font-bold text-slate-900">Orders</h2>
+            <p className="text-slate-500 font-medium mt-1">Track and manage customer purchases</p>
         </div>
         
-        {/* Search & Filter Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <input 
-              value={q}
-              onChange={e => { setQ(e.target.value); setPage(1); }}
-              placeholder="Search ID, Name, or Email..." 
-              className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-64"
-            />
-            
-            <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-xl">
-                <span className="text-xs font-bold text-slate-500 uppercase">Status:</span>
-                <select 
-                  value={statusFilter} 
-                  onChange={e=> { setStatusFilter(e.target.value); setPage(1); }} 
-                  className="bg-transparent text-sm font-medium text-slate-700 outline-none cursor-pointer"
+        <div className="flex gap-3 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm">
+            {['', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => (
+                <button 
+                    key={s}
+                    onClick={() => { setStatusFilter(s); setPage(1); }}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-bold capitalize transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
                 >
-                    <option value="">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </div>
+                    {s || 'All'}
+                </button>
+            ))}
         </div>
       </div>
 
-      {loading ? <div className="flex justify-center p-10"><div className="loader"></div></div> : (
+      {/* --- Search --- */}
+      <div className="relative">
+         <input 
+            value={q}
+            onChange={e => { setQ(e.target.value); setPage(1); }}
+            placeholder="Search by Order ID, Name, or Email..." 
+            className="w-full bg-white border border-slate-200 pl-12 pr-4 py-4 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-lg"
+         />
+         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+         </div>
+      </div>
+
+      {/* --- Orders List --- */}
+      {loading ? <div className="flex justify-center p-12"><div className="loader"></div></div> : (
         <div className="space-y-4">
           {orders.map(o => (
-            <div key={o._id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-xl bg-slate-50 border border-slate-200 hidden sm:block`}>
-                    <span className="text-2xl">📦</span>
+            <motion.div 
+                key={o._id} 
+                layout
+                className="group bg-white p-5 rounded-2xl border border-slate-100 hover:border-indigo-100 hover:shadow-lg transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+            >
+                <div className="flex items-start gap-5">
+                    <div className="w-12 h-12 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center text-xl shadow-sm">
+                        📦
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <span className="font-mono font-bold text-slate-900 text-lg">#{o._id.slice(-6).toUpperCase()}</span>
+                            <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${STATUS_COLORS[o.status]}`}>
+                                {o.status}
+                            </span>
+                        </div>
+                        <div className="text-sm text-slate-500 font-medium">
+                            {o.userIdName} • <span className="text-slate-400">{o.userEmail}</span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                            {new Date(o.createdAt).toLocaleDateString()} at {new Date(o.createdAt).toLocaleTimeString()}
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-bold text-slate-900">#{o._id.slice(-8).toUpperCase()}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold border ${STATUS_COLORS[o.status] || 'bg-gray-100 text-gray-600'}`}>
-                            {o.status}
-                        </span>
-                    </div>
-                    <div className="text-sm text-slate-500">
-                        <span className="font-medium text-slate-700">{o.userIdName || 'Unknown User'}</span> • {new Date(o.createdAt).toLocaleDateString()}
-                    </div>
-                    <div className="text-xs text-slate-400 mt-1">
-                        {o.userEmail} • ₹{o.totalAmount}
-                    </div>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <button onClick={()=> nav('/admin/orders/' + o._id)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:border-indigo-500 hover:text-indigo-600 transition-colors">Details</button>
-                <button onClick={()=> openStatusModal(o)} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors">Update</button>
-              </div>
-            </div>
+                <div className="flex items-center gap-6 pl-16 md:pl-0 border-t md:border-0 border-slate-50 pt-4 md:pt-0">
+                    <div className="text-right">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wide">Total</p>
+                        <p className="text-xl font-bold text-slate-900">₹{o.totalAmount}</p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={()=> { setSelectedOrder(o); setNewStatus(o.status); }} 
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                            title="Update Status"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button 
+                            onClick={()=> nav(`/admin/orders/${o._id}`)} 
+                            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-indigo-600 hover:shadow-indigo-200 transition-all"
+                        >
+                            Details
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
           ))}
           
-          {orders.length === 0 && <div className="text-center py-10 text-slate-500">No orders found.</div>}
+          {orders.length === 0 && <div className="text-center py-20 text-slate-400">No orders found.</div>}
         </div>
       )}
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 mt-8">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm disabled:opacity-50">Prev</button>
-          <span className="text-sm text-slate-600">Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm disabled:opacity-50">Next</button>
-        </div>
-      )}
-
-      {/* --- STATUS MODAL (Simplified) --- */}
+      {/* --- Status Modal --- */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={()=>setSelectedOrder(null)}>
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm animate-popIn" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-lg mb-4">Update Status</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={()=>setSelectedOrder(null)}></div>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm relative z-10 animate-in fade-in zoom-in-95">
+                <h3 className="font-serif font-bold text-xl mb-4 text-slate-900">Update Status</h3>
                 <div className="space-y-2">
                     {['pending','processing','shipped','delivered','cancelled'].map(s => (
-                        <button key={s} onClick={()=> setNewStatus(s)} className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium capitalize ${newStatus === s ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <button 
+                            key={s} 
+                            onClick={()=> setNewStatus(s)} 
+                            className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm capitalize transition-all border ${newStatus === s ? STATUS_COLORS[s] + ' ring-1 ring-current' : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50'}`}
+                        >
                             {s}
                         </button>
                     ))}
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                    <button onClick={()=>setSelectedOrder(null)} className="text-sm text-slate-500 hover:text-slate-800">Cancel</button>
-                    <button onClick={updateStatus} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700">Save</button>
+                    <button onClick={()=>setSelectedOrder(null)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Cancel</button>
+                    <button onClick={updateStatus} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-600 transition-all">Save</button>
                 </div>
             </div>
         </div>
