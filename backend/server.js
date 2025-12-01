@@ -18,8 +18,6 @@ const orderRoutes = require('./routes/orders');
 const app = express();
 
 // --- FIX 1: TRUST PROXY (Required for Render) ---
-// Tells Express to trust the Load Balancer's headers (X-Forwarded-For)
-// '1' means trust the first proxy hop, which is standard for Render.
 app.set('trust proxy', 1);
 
 // --- 1. SECURITY HEADERS (Helmet) ---
@@ -30,32 +28,41 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, 
   message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  standardHeaders: true, 
+  legacyHeaders: false, 
 });
 app.use('/api', limiter);
 
-// --- 3. GLOBAL MIDDLEWARE (CORS) ---
-const allowedOrigins = [
-  "https://bsms-zeta.vercel.app", 
-  "http://localhost:5173"
-];
-
+// --- 3. GLOBAL MIDDLEWARE (CORS) - UPDATED ---
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, webhooks)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      // return callback(new Error('CORS policy violation'), false);
-      return callback(null, true); 
+
+    const allowedOrigins = [
+      "https://bsms-zeta.vercel.app", 
+      "http://localhost:5173",
+      "http://localhost:5174" // Common alternate local port
+    ];
+
+    // Check exact match
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-    return callback(null, true);
+
+    // Check for ANY Vercel deployment (Previews & Production)
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
+
+    // Log the blocked origin so you can debug it
+    console.error("❌ CORS Blocked Origin:", origin);
+    return callback(new Error('CORS policy violation: Origin not allowed'), false);
   },
   credentials: true
 }));
 
-// --- 4. BODY PARSER (With Raw Body Capture) ---
-// This replaces the previous separate 'express.raw' and 'express.json' setup.
-// We verify the JSON and save the raw buffer to 'req.rawBody' for Stripe.
+// --- 4. BODY PARSER (With Raw Body Capture for Stripe) ---
 app.use(express.json({ 
   limit: '10kb',
   verify: (req, res, buf) => {
