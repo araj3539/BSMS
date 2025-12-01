@@ -1,7 +1,8 @@
-// src/pages/Wishlist.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import BookCard from '../components/BookCard';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function Wishlist() {
   const [books, setBooks] = useState([]);
@@ -9,23 +10,46 @@ export default function Wishlist() {
 
   useEffect(() => {
     api.get('/auth/wishlist')
-      .then(res => {
-        setBooks(res.data);
-      })
+      .then(res => setBooks(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="flex justify-center p-32"><div className="loader"></div></div>;
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6">My Wishlist</h2>
+    <div className="max-w-7xl mx-auto py-12 px-6 min-h-screen">
+      <div className="mb-10">
+        <h2 className="text-4xl font-serif font-bold text-slate-900 tracking-tight">My Wishlist</h2>
+        <p className="text-slate-500 mt-2 font-medium">Books you've saved for later.</p>
+      </div>
+
       {books.length === 0 ? (
-        <div className="text-gray-500">Your wishlist is empty.</div>
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center py-24 bg-white/50 border border-dashed border-slate-300 rounded-3xl"
+        >
+            <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <span className="text-4xl">❤️</span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">Your wishlist is empty</h3>
+            <p className="text-slate-500 mt-2 mb-8 max-w-sm text-center">Save items you want to see here by clicking the heart icon on any book.</p>
+            <Link to="/" className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-600 transition-all hover:-translate-y-1">
+                Explore Books
+            </Link>
+        </motion.div>
       ) : (
-        <div className="grid md:grid-cols-4 sm:grid-cols-2 gap-4">
-          {books.map(b => <BookCard key={b._id} book={b} />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {books.map((b, i) => (
+             <motion.div 
+                key={b._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+             >
+                <BookCard book={b} />
+             </motion.div>
+          ))}
         </div>
       )}
     </div>
