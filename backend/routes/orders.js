@@ -1,3 +1,4 @@
+// backend/routes/orders.js
 const express = require('express');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
@@ -7,13 +8,16 @@ const { auth, isAdmin } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const { sendEmail, getEmailTemplate } = require('../utils/email');
-// --- IMPORT NEW UTILS ---
 const { generateInvoiceBuffer, streamInvoice } = require('../utils/invoice');
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const round = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-// ... (validateOrder code remains the same) ...
+// --- HELPER: Escape Regex ---
+function escapeRegex(text) {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
+
 const validateOrder = [
   body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
   body('items.*.bookId').notEmpty().withMessage('Invalid item data'),
@@ -27,13 +31,11 @@ const validateOrder = [
   }
 ];
 
-// --- 1. INITIALIZE CHECKOUT (Frontend calls this first) ---
 router.post('/checkout-init', auth, async (req, res) => {
   try {
     const { items, promotionCode, shippingAddress, saveAddress, addressLabel } = req.body;
     const userId = req.user.id;
 
-    // A. Validate Books & Calculate Totals
     const bookIds = items.map(it => it.bookId);
     const books = await Book.find({ _id: { $in: bookIds } });
     
@@ -49,7 +51,6 @@ router.post('/checkout-init', auth, async (req, res) => {
       orderItems.push({ bookId: b._id, title: b.title, qty: it.qty, price: b.price });
     }
 
-    // B. Apply Discount
     let discount = 0;
     let promoDetails = null;
     const subtotal = round(rawSubtotal);
@@ -63,7 +64,6 @@ router.post('/checkout-init', auth, async (req, res) => {
     }
     const totalAmount = round(Math.max(0, subtotal - discount));
 
-    // C. Create "Pending" Order in DB
     const newOrder = new Order({
       userId,
       userEmail: req.user.email,
@@ -74,23 +74,21 @@ router.post('/checkout-init', auth, async (req, res) => {
       totalAmount,
       promotionCode: promoDetails,
       shippingAddress,
-      status: 'payment_pending' // <--- Important: Not confirmed yet
+      status: 'payment_pending'
     });
     await newOrder.save();
 
-    // D. Update User Address (Optional: Do it now since user intent is clear)
     if (saveAddress && shippingAddress) {
         await User.findByIdAndUpdate(userId, { 
             $addToSet: { addresses: { label: addressLabel || 'New', address: shippingAddress } } 
         });
     }
 
-    // E. Create Stripe Intent with Order ID in Metadata
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalAmount * 100),
       currency: 'inr',
       metadata: { 
-        orderId: newOrder._id.toString() // <--- THE KEY LINK
+        orderId: newOrder._id.toString()
       }
     });
 
@@ -105,13 +103,11 @@ router.post('/checkout-init', auth, async (req, res) => {
   }
 });
 
-// --- 2. STRIPE WEBHOOK (Stripe calls this) ---
 router.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
   try {
-    // Verify the event came from Stripe
     event = stripe.webhooks.constructEvent(
         req.body, 
         sig, 
@@ -122,7 +118,6 @@ router.post('/webhook', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
     const { orderId } = paymentIntent.metadata;
@@ -133,12 +128,10 @@ router.post('/webhook', async (req, res) => {
         const order = await Order.findById(orderId);
         if(order && order.status === 'payment_pending') {
             
-            // 1. Update Status
-            order.status = 'pending'; // Confirmed!
+            order.status = 'pending';
             order.paymentId = paymentIntent.id;
             await order.save();
 
-            // 2. Deduct Stock (Moved here so we only deduct if paid)
             const bulkOps = order.items.map(item => ({
                 updateOne: { 
                     filter: { _id: item.bookId }, 
@@ -147,8 +140,6 @@ router.post('/webhook', async (req, res) => {
             }));
             await Book.bulkWrite(bulkOps);
 
-            // 3. Send Email
-            // ... (Your existing email logic goes here) ...
             try {
                 const invoiceBuffer = await generateInvoiceBuffer(order);
                 const html = getEmailTemplate({
@@ -174,7 +165,7 @@ router.post('/webhook', async (req, res) => {
     }
   }
 
-  res.send(); // Acknowledge receipt
+  res.send();
 });
 
 router.get('/:id/invoice', auth, async (req, res) => {
@@ -182,7 +173,6 @@ router.get('/:id/invoice', auth, async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ msg: 'Order not found' });
     
-    // Check permissions (owner or admin)
     if (req.user.role !== 'admin' && order.userId.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'Not authorized' });
     }
@@ -194,33 +184,30 @@ router.get('/:id/invoice', auth, async (req, res) => {
   }
 });
 
-// ... (Existing GET / and GET /:id routes) ...
 router.get('/', auth, async (req, res) => {
   try {
-    // 1. Customer: Just return their own orders
     if (req.user.role !== 'admin') {
       const list = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
       return res.json(list);
     }
 
-    // 2. Admin: Handle Search & Pagination
     const { q, status, page = 1, limit = 20 } = req.query;
     const pageNum = Math.max(1, Number(page));
     const lim = Math.max(1, Math.min(100, Number(limit)));
     
     const filter = {};
 
-    // Filter by Status
     if (status) filter.status = status;
 
-    // Filter by Search (Order ID, Name, or Email)
     if (q) {
-      const regex = new RegExp(q, 'i');
-      const isObjectId = q.match(/^[0-9a-fA-F]{24}$/); // Check if it looks like an ID
+      const isObjectId = q.match(/^[0-9a-fA-F]{24}$/);
       
       if (isObjectId) {
         filter._id = q;
       } else {
+        // SECURITY: Sanitize query
+        const cleanQ = escapeRegex(q);
+        const regex = new RegExp(cleanQ, 'i');
         filter.$or = [
           { userIdName: regex },
           { userEmail: regex },
@@ -290,27 +277,22 @@ router.put('/:id/status', auth, isAdmin, async (req, res) => {
   }
 });
 
-// USER: Cancel Order
 router.put('/:id/cancel', auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ msg: 'Order not found' });
 
-    // 1. Ownership Check
     if (order.userId.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'Not authorized' });
     }
 
-    // 2. Status Check
     if (order.status !== 'pending') {
       return res.status(400).json({ msg: 'Cannot cancel order that is already processing or shipped' });
     }
 
-    // 3. Update Status
     order.status = 'cancelled';
     await order.save();
 
-    // 4. Restock Inventory (Important!)
     const bulkOps = order.items.map(item => ({
       updateOne: { 
         filter: { _id: item.bookId }, 
@@ -319,7 +301,6 @@ router.put('/:id/cancel', auth, async (req, res) => {
     }));
     await Book.bulkWrite(bulkOps);
 
-    // 5. Send Email
     const html = getEmailTemplate({
         title: 'Order Cancelled',
         message: 'Your order has been successfully cancelled as per your request.',

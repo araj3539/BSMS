@@ -1,22 +1,35 @@
+// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+// --- SECURITY MIDDLEWARE IMPORTS ---
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const rateLimit = require('express-rate-limit');
+
 // Import Routes
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
-const orderRoutes = require('./routes/orders'); // <--- Ensure this is imported
+const orderRoutes = require('./routes/orders');
 
 const app = express();
 
-// --- 1. STRIPE WEBHOOK (MUST BE FIRST) ---
-// This middleware tells Express to keep the body raw for this specific route
-// so Stripe can verify the signature.
-app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
+// --- 1. SECURITY HEADERS (Helmet) ---
+app.use(helmet());
 
-// --- 2. GLOBAL MIDDLEWARE (CORS) ---
-// We explicitly allow your Vercel frontend to prevent "Block" errors
+// --- 2. RATE LIMITING ---
+// Limit requests from same IP to 100 per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, 
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api', limiter);
+
+// --- 3. GLOBAL MIDDLEWARE (CORS) ---
 const allowedOrigins = [
   "https://bsms-zeta.vercel.app", 
   "http://localhost:5173"
@@ -24,38 +37,44 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      // Optional: You can un-comment the error below to be strict, 
-      // but returning true is safer for debugging if you have multiple domains.
-      // return callback(new Error('CORS policy violation'), false);
-      return callback(null, true); 
+      return callback(new Error('CORS policy violation: Origin not allowed'), false);
     }
     return callback(null, true);
   },
   credentials: true
 }));
 
-// --- 3. JSON PARSING ---
-// Parses JSON for all routes EXCEPT the webhook (handled above)
-app.use(express.json());
+// --- 4. STRIPE WEBHOOK (MUST BE BEFORE JSON PARSER) ---
+// Keeps body raw for Stripe signature verification
+app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
 
-// --- 4. DATABASE CONNECTION ---
+// --- 5. BODY PARSER (Restricted Size) ---
+// Prevent DoS by limiting body size to 10kb
+app.use(express.json({ limit: '10kb' }));
+
+// --- 6. DATA SANITIZATION ---
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Data sanitization against XSS
+app.use(xss());
+
+// --- 7. DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser:true, useUnifiedTopology:true })
   .then(()=> console.log('Mongo connected'))
   .catch(err=> console.error('Mongo err', err));
 
-// --- 5. ROUTES ---
-// (I removed the duplicate lines from your previous file)
+// --- 8. ROUTES ---
 app.use('/api/auth', authRoutes);
-app.use('/api/books', require('./routes/books'));
+app.use('/api/books', bookRoutes); // Use variable for consistency
 app.use('/api/orders', orderRoutes); 
 app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/reports', require('./routes/reports'));
 
-// --- 6. PING (Keep-Alive for Render) ---
+// --- 9. PING ---
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
 });
