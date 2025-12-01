@@ -108,8 +108,10 @@ router.post('/webhook', async (req, res) => {
   let event;
 
   try {
+    // FIX: Use 'req.rawBody' instead of 'req.body'
+    // 'req.rawBody' was created by the express.json() verify function in server.js
     event = stripe.webhooks.constructEvent(
-        req.body, 
+        req.rawBody, 
         sig, 
         process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -118,6 +120,7 @@ router.post('/webhook', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Handle the event
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
     const { orderId } = paymentIntent.metadata;
@@ -128,10 +131,12 @@ router.post('/webhook', async (req, res) => {
         const order = await Order.findById(orderId);
         if(order && order.status === 'payment_pending') {
             
-            order.status = 'pending';
+            // 1. Update Status
+            order.status = 'pending'; // Confirmed!
             order.paymentId = paymentIntent.id;
             await order.save();
 
+            // 2. Deduct Stock
             const bulkOps = order.items.map(item => ({
                 updateOne: { 
                     filter: { _id: item.bookId }, 
@@ -140,6 +145,7 @@ router.post('/webhook', async (req, res) => {
             }));
             await Book.bulkWrite(bulkOps);
 
+            // 3. Send Email
             try {
                 const invoiceBuffer = await generateInvoiceBuffer(order);
                 const html = getEmailTemplate({
@@ -165,7 +171,7 @@ router.post('/webhook', async (req, res) => {
     }
   }
 
-  res.send();
+  res.send(); // Acknowledge receipt
 });
 
 router.get('/:id/invoice', auth, async (req, res) => {

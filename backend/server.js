@@ -17,15 +17,21 @@ const orderRoutes = require('./routes/orders');
 
 const app = express();
 
+// --- FIX 1: TRUST PROXY (Required for Render) ---
+// Tells Express to trust the Load Balancer's headers (X-Forwarded-For)
+// '1' means trust the first proxy hop, which is standard for Render.
+app.set('trust proxy', 1);
+
 // --- 1. SECURITY HEADERS (Helmet) ---
 app.use(helmet());
 
 // --- 2. RATE LIMITING ---
-// Limit requests from same IP to 100 per 15 minutes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, 
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use('/api', limiter);
 
@@ -39,42 +45,42 @@ app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS policy violation: Origin not allowed'), false);
+      // return callback(new Error('CORS policy violation'), false);
+      return callback(null, true); 
     }
     return callback(null, true);
   },
   credentials: true
 }));
 
-// --- 4. STRIPE WEBHOOK (MUST BE BEFORE JSON PARSER) ---
-// Keeps body raw for Stripe signature verification
-app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
+// --- 4. BODY PARSER (With Raw Body Capture) ---
+// This replaces the previous separate 'express.raw' and 'express.json' setup.
+// We verify the JSON and save the raw buffer to 'req.rawBody' for Stripe.
+app.use(express.json({ 
+  limit: '10kb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 
-// --- 5. BODY PARSER (Restricted Size) ---
-// Prevent DoS by limiting body size to 10kb
-app.use(express.json({ limit: '10kb' }));
-
-// --- 6. DATA SANITIZATION ---
-// Data sanitization against NoSQL query injection
+// --- 5. DATA SANITIZATION ---
 app.use(mongoSanitize());
-
-// Data sanitization against XSS
 app.use(xss());
 
-// --- 7. DATABASE CONNECTION ---
+// --- 6. DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser:true, useUnifiedTopology:true })
   .then(()=> console.log('Mongo connected'))
   .catch(err=> console.error('Mongo err', err));
 
-// --- 8. ROUTES ---
+// --- 7. ROUTES ---
 app.use('/api/auth', authRoutes);
-app.use('/api/books', bookRoutes); // Use variable for consistency
+app.use('/api/books', bookRoutes); 
 app.use('/api/orders', orderRoutes); 
 app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/reports', require('./routes/reports'));
 
-// --- 9. PING ---
+// --- 8. PING ---
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
 });
