@@ -2,11 +2,12 @@ const express = require('express');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
 const Promotion = require('../models/Promotion');
-const { auth, isAdmin } = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
+const { requireAdmin } = require('../middleware/security'); // Added
 const router = express.Router();
 
 // Admin dashboard summary
-router.get('/dashboard', auth, isAdmin, async (req,res)=>{
+router.get('/dashboard', auth, requireAdmin, async (req,res)=>{
   const totalSalesAgg = await Order.aggregate([
     { $group: { _id: null, totalSales: { $sum: "$totalAmount" }, orders: { $sum: 1 } } }
   ]);

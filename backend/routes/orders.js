@@ -4,7 +4,8 @@ const Book = require('../models/Book');
 const Order = require('../models/Order');
 const Promotion = require('../models/Promotion');
 const User = require('../models/User');
-const { auth, isAdmin } = require('../middleware/auth');
+const { auth } = require('../middleware/auth'); // Removed isAdmin
+const { requireAdmin, audit } = require('../middleware/security'); // Added Security Middleware
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const { sendEmail, getEmailTemplate } = require('../utils/email');
@@ -31,6 +32,7 @@ const validateOrder = [
   }
 ];
 
+// Checkout Init (Public/Auth)
 router.post('/checkout-init', auth, async (req, res) => {
   try {
     const { items, promotionCode, shippingAddress, saveAddress, addressLabel } = req.body;
@@ -103,13 +105,12 @@ router.post('/checkout-init', auth, async (req, res) => {
   }
 });
 
+// Stripe Webhook (No Auth Middleware - Stripe Signature Verified Inside)
 router.post('/webhook', async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
   try {
-    // FIX: Use 'req.rawBody' instead of 'req.body'
-    // 'req.rawBody' was created by the express.json() verify function in server.js
     event = stripe.webhooks.constructEvent(
         req.rawBody, 
         sig, 
@@ -120,7 +121,6 @@ router.post('/webhook', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
     const { orderId } = paymentIntent.metadata;
@@ -131,12 +131,10 @@ router.post('/webhook', async (req, res) => {
         const order = await Order.findById(orderId);
         if(order && order.status === 'payment_pending') {
             
-            // 1. Update Status
-            order.status = 'pending'; // Confirmed!
+            order.status = 'pending';
             order.paymentId = paymentIntent.id;
             await order.save();
 
-            // 2. Deduct Stock
             const bulkOps = order.items.map(item => ({
                 updateOne: { 
                     filter: { _id: item.bookId }, 
@@ -145,7 +143,6 @@ router.post('/webhook', async (req, res) => {
             }));
             await Book.bulkWrite(bulkOps);
 
-            // 3. Send Email
             try {
                 const invoiceBuffer = await generateInvoiceBuffer(order);
                 const html = getEmailTemplate({
@@ -171,9 +168,10 @@ router.post('/webhook', async (req, res) => {
     }
   }
 
-  res.send(); // Acknowledge receipt
+  res.send();
 });
 
+// Get Invoice (Auth + Ownership or Admin)
 router.get('/:id/invoice', auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -190,6 +188,7 @@ router.get('/:id/invoice', auth, async (req, res) => {
   }
 });
 
+// List Orders (Admin or User)
 router.get('/', auth, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -211,7 +210,6 @@ router.get('/', auth, async (req, res) => {
       if (isObjectId) {
         filter._id = q;
       } else {
-        // SECURITY: Sanitize query
         const cleanQ = escapeRegex(q);
         const regex = new RegExp(cleanQ, 'i');
         filter.$or = [
@@ -240,6 +238,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get Single Order
 router.get('/:id', auth, async (req, res) => {
   try {
     const o = await Order.findById(req.params.id).lean();
@@ -249,40 +248,47 @@ router.get('/:id', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
 
-router.put('/:id/status', auth, isAdmin, async (req, res) => {
-  try {
-    const { status } = req.body;
-    const allowed = ['pending','processing','shipped','delivered','cancelled'];
-    if(!allowed.includes(status)) return res.status(400).json({ msg: 'Invalid status' });
-    
-    const o = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    if(!o) return res.status(404).json({ msg: 'Not found' });
+// UPDATE STATUS (Admin Only + Audit Log)
+router.put('/:id/status', 
+  auth, 
+  requireAdmin, 
+  audit('UPDATE_ORDER_STATUS'), 
+  async (req, res) => {
+    try {
+      const { status } = req.body;
+      const allowed = ['pending','processing','shipped','delivered','cancelled'];
+      if(!allowed.includes(status)) return res.status(400).json({ msg: 'Invalid status' });
+      
+      const o = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+      if(!o) return res.status(404).json({ msg: 'Not found' });
 
-    if (['shipped', 'delivered', 'cancelled'].includes(status)) {
-      const messages = {
-        shipped: 'Great news! Your order has been shipped.',
-        delivered: 'Your order has been delivered.',
-        cancelled: 'Your order has been cancelled.'
-      };
-      const html = getEmailTemplate({
-        title: `Order Update: ${status.toUpperCase()}`,
-        message: messages[status],
-        orderId: o._id,
-        items: o.items,
-        subtotal: Number(o.subtotal),
-        discount: Number(o.discount),
-        total: Number(o.totalAmount),
-        status: status
-      });
-      await sendEmail({ to: o.userEmail, subject: `Order #${o._id} is ${status}`, html });
+      if (['shipped', 'delivered', 'cancelled'].includes(status)) {
+        const messages = {
+          shipped: 'Great news! Your order has been shipped.',
+          delivered: 'Your order has been delivered.',
+          cancelled: 'Your order has been cancelled.'
+        };
+        const html = getEmailTemplate({
+          title: `Order Update: ${status.toUpperCase()}`,
+          message: messages[status],
+          orderId: o._id,
+          items: o.items,
+          subtotal: Number(o.subtotal),
+          discount: Number(o.discount),
+          total: Number(o.totalAmount),
+          status: status
+        });
+        await sendEmail({ to: o.userEmail, subject: `Order #${o._id} is ${status}`, html });
+      }
+      res.json(o);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ msg: 'Server error' });
     }
-    res.json(o);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error' });
   }
-});
+);
 
+// Cancel Order (User Action - No Audit needed, or can be added if desired)
 router.put('/:id/cancel', auth, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
