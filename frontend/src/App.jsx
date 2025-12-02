@@ -24,6 +24,7 @@ import AdminRoute from "./components/AdminRoute";
 import { Toaster } from 'react-hot-toast';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
+import AdminAuditLogs from "./pages/AdminAuditLogs";
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
             <Route path="/admin/orders/:id" element={<AdminOrderDetail />} />
+            <Route path="/admin/logs" element={<AdminAuditLogs />} />
           </Route>
         </Routes>
       </main>

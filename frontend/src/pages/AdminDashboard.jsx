@@ -180,6 +180,7 @@ export default function AdminDashboard(){
                 <QuickAction to="/admin/promotions" icon="🎟️" label="Promotions" />
                 <QuickAction to="/admin/orders" icon="📦" label="Orders" />
                 <QuickAction to="/admin/reports" icon="📊" label="Analytics" />
+                <QuickAction to="/admin/logs" icon="🛡️" label="Audit Logs" />
               </div>
            </div>
         </div>

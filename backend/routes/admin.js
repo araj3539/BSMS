@@ -21,6 +21,19 @@ router.get('/dashboard', auth, requireAdmin, async (req,res)=>{
   });
 });
 
+router.get('/audit-logs', auth, requireAdmin, async (req, res) => {
+  try {
+    const logs = await AuditLog.find()
+      .sort({ createdAt: -1 })
+      .limit(100) // Show last 100 actions
+      .populate('userId', 'name email'); // Show who did it
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
 // Recommendations endpoint (simple)
 router.get('/recommendations/:bookId?', async (req,res)=>{
   // if bookId given, recommend same category + best sellers
