@@ -9,6 +9,9 @@ const multer = require('multer');
 const csv = require('csv-parser');
 const stream = require('stream');
 
+// Import new middleware
+const { requireAdmin, audit } = require('../middleware/security');
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- HELPER: Escape Regex for Security ---
@@ -110,6 +113,7 @@ const validateBook = [
   }
 ];
 
+// POST /api/books/:id/reviews
 router.post('/:id/reviews', auth, async (req, res) => {
   try {
     const { rating, comment } = req.body;
@@ -147,74 +151,104 @@ router.post('/:id/reviews', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, isAdmin, validateBook, async (req, res) => {
-  try {
-    const book = new Book(req.body);
-    await book.save();
-    res.status(201).json(book);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+// --- ADMIN ROUTES WITH AUDIT LOGGING ---
+
+// Create Book
+router.post('/', 
+  auth, 
+  requireAdmin, // Replaced 'isAdmin' with strict 'requireAdmin'
+  audit('CREATE_BOOK'), // Audit Log
+  validateBook, 
+  async (req, res) => {
+    try {
+      const book = new Book(req.body);
+      await book.save();
+      res.status(201).json(book);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ msg: 'Server error' });
+    }
   }
-});
+);
 
-router.post('/bulk', auth, isAdmin, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ msg: 'No file uploaded' });
+// Bulk Upload
+router.post('/bulk', 
+  auth, 
+  requireAdmin, 
+  audit('BULK_IMPORT_BOOKS'), 
+  upload.single('file'), 
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ msg: 'No file uploaded' });
 
-  const results = [];
-  const bufferStream = new stream.PassThrough();
-  bufferStream.end(req.file.buffer);
+    const results = [];
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(req.file.buffer);
 
-  bufferStream
-    .pipe(csv())
-    .on('data', (data) => {
-      if(data.title && data.price) {
-        results.push({
-          title: data.title,
-          author: data.author || 'Unknown',
-          price: Number(data.price) || 0,
-          stock: Number(data.stock) || 0,
-          category: data.category || 'General',
-          description: data.description || '',
-          isbn: data.isbn || '',
-          coverImageUrl: data.coverImageUrl || '' 
-        });
-      }
-    })
-    .on('end', async () => {
-      try {
-        if (results.length === 0) return res.status(400).json({ msg: 'CSV is empty or invalid' });
-        await Book.insertMany(results);
-        res.json({ msg: `Successfully added ${results.length} books` });
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: 'Failed to import books', error: err.message });
-      }
-    });
-});
-
-router.put('/:id', auth, isAdmin, validateBook, async (req, res) => {
-  try {
-    const updated = await Book.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ msg: 'Not found' });
-    res.json(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+    bufferStream
+      .pipe(csv())
+      .on('data', (data) => {
+        if(data.title && data.price) {
+          results.push({
+            title: data.title,
+            author: data.author || 'Unknown',
+            price: Number(data.price) || 0,
+            stock: Number(data.stock) || 0,
+            category: data.category || 'General',
+            description: data.description || '',
+            isbn: data.isbn || '',
+            coverImageUrl: data.coverImageUrl || '' 
+          });
+        }
+      })
+      .on('end', async () => {
+        try {
+          if (results.length === 0) return res.status(400).json({ msg: 'CSV is empty or invalid' });
+          await Book.insertMany(results);
+          res.json({ msg: `Successfully added ${results.length} books` });
+        } catch (err) {
+          console.error(err);
+          res.status(500).json({ msg: 'Failed to import books', error: err.message });
+        }
+      });
   }
-});
+);
 
-router.delete('/:id', auth, isAdmin, async (req, res) => {
-  try {
-    const removed = await Book.findByIdAndDelete(req.params.id);
-    if (!removed) return res.status(404).json({ msg: 'Not found' });
-    res.json({ msg: 'Deleted' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: 'Server error' });
+// Update Book
+router.put('/:id', 
+  auth, 
+  requireAdmin, 
+  audit('UPDATE_BOOK'), 
+  validateBook, 
+  async (req, res) => {
+    try {
+      const updated = await Book.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      if (!updated) return res.status(404).json({ msg: 'Not found' });
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ msg: 'Server error' });
+    }
   }
-});
+);
 
+// Delete Book
+router.delete('/:id', 
+  auth, 
+  requireAdmin, 
+  audit('DELETE_BOOK'), 
+  async (req, res) => {
+    try {
+      const removed = await Book.findByIdAndDelete(req.params.id);
+      if (!removed) return res.status(404).json({ msg: 'Not found' });
+      res.json({ msg: 'Deleted' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ msg: 'Server error' });
+    }
+  }
+);
+
+// Delete Review (Admin Action)
 router.delete('/:id/reviews/:reviewId', auth, async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
@@ -223,6 +257,7 @@ router.delete('/:id/reviews/:reviewId', auth, async (req, res) => {
     const review = book.reviews.id(req.params.reviewId);
     if (!review) return res.status(404).json({ msg: 'Review not found' });
     
+    // Allow user or admin to delete
     if (review.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ msg: 'Not authorized' });
     }
