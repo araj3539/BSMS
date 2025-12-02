@@ -3,6 +3,7 @@ const Book = require('../models/Book');
 const Order = require('../models/Order');
 const Promotion = require('../models/Promotion');
 const { auth } = require('../middleware/auth');
+const AuditLog = require('../models/AuditLog');
 const { requireAdmin } = require('../middleware/security'); // Added
 const router = express.Router();
 
