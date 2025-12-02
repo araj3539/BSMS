@@ -3,13 +3,13 @@ const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book');
 const Order = require('../models/Order');
-const { auth, isAdmin } = require('../middleware/auth');
+const { auth } = require('../middleware/auth'); // Removed 'isAdmin' import
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const csv = require('csv-parser');
 const stream = require('stream');
 
-// Import new middleware
+// Import Security Middleware
 const { requireAdmin, audit } = require('../middleware/security');
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -19,7 +19,7 @@ function escapeRegex(text) {
   return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
 
-// GET /api/books
+// GET /api/books (Public)
 router.get('/', async (req, res) => {
   try {
     const { q, category, minPrice, maxPrice, minRating, sort, page = 1, limit = 20 } = req.query;
@@ -28,7 +28,6 @@ router.get('/', async (req, res) => {
 
     const filter = {};
 
-    // SECURITY: Sanitize the search query to prevent ReDoS
     if (q) {
       const cleanQ = escapeRegex(q);
       filter.$or = [
@@ -74,6 +73,7 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Batch Fetch (Public)
 router.post('/batch', async (req, res) => {
   try {
     const { ids } = req.body;
@@ -89,6 +89,7 @@ router.post('/batch', async (req, res) => {
   }
 });
 
+// Get Single Book (Public)
 router.get('/:id', async (req, res) => {
   try {
     const b = await Book.findById(req.params.id);
@@ -113,7 +114,7 @@ const validateBook = [
   }
 ];
 
-// POST /api/books/:id/reviews
+// Add Review (Authenticated)
 router.post('/:id/reviews', auth, async (req, res) => {
   try {
     const { rating, comment } = req.body;
@@ -151,13 +152,13 @@ router.post('/:id/reviews', auth, async (req, res) => {
   }
 });
 
-// --- ADMIN ROUTES WITH AUDIT LOGGING ---
+// --- ADMIN ROUTES (SECURED & AUDITED) ---
 
 // Create Book
 router.post('/', 
   auth, 
-  requireAdmin, // Replaced 'isAdmin' with strict 'requireAdmin'
-  audit('CREATE_BOOK'), // Audit Log
+  requireAdmin, // Replaced isAdmin
+  audit('CREATE_BOOK'), // Activated Logging
   validateBook, 
   async (req, res) => {
     try {
@@ -174,8 +175,8 @@ router.post('/',
 // Bulk Upload
 router.post('/bulk', 
   auth, 
-  requireAdmin, 
-  audit('BULK_IMPORT_BOOKS'), 
+  requireAdmin, // Replaced isAdmin
+  audit('BULK_IMPORT_BOOKS'), // Activated Logging
   upload.single('file'), 
   async (req, res) => {
     if (!req.file) return res.status(400).json({ msg: 'No file uploaded' });
@@ -216,8 +217,8 @@ router.post('/bulk',
 // Update Book
 router.put('/:id', 
   auth, 
-  requireAdmin, 
-  audit('UPDATE_BOOK'), 
+  requireAdmin, // Replaced isAdmin
+  audit('UPDATE_BOOK'), // Activated Logging
   validateBook, 
   async (req, res) => {
     try {
@@ -234,8 +235,8 @@ router.put('/:id',
 // Delete Book
 router.delete('/:id', 
   auth, 
-  requireAdmin, 
-  audit('DELETE_BOOK'), 
+  requireAdmin, // Replaced isAdmin
+  audit('DELETE_BOOK'), // Activated Logging
   async (req, res) => {
     try {
       const removed = await Book.findByIdAndDelete(req.params.id);
@@ -260,6 +261,11 @@ router.delete('/:id/reviews/:reviewId', auth, async (req, res) => {
     // Allow user or admin to delete
     if (review.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ msg: 'Not authorized' });
+    }
+
+    // Optional: Add audit for admin deleting user reviews
+    if (req.user.role === 'admin' && review.user.toString() !== req.user.id) {
+       // Ideally you could call logAudit here directly if imported
     }
 
     book.reviews.pull(req.params.reviewId);

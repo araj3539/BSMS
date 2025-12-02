@@ -24,7 +24,6 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 // --- 2. GLOBAL RATE LIMITING ---
-// General limit for API calls
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, 
@@ -34,15 +33,16 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// --- 3. AUTH RATE LIMITING (Stricter) ---
-// Specific limit for Login/Signup to prevent brute force
+// --- 3. AUTH RATE LIMITING (Brute Force Protection) ---
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 attempts
-  message: { msg: 'Too many login attempts. Please try again after 15 minutes.' }
+  max: 10, // Max 10 login/signup attempts per IP
+  message: { msg: 'Too many login attempts. Please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// --- 4. GLOBAL MIDDLEWARE (CORS) ---
+// --- 4. GLOBAL MIDDLEWARE (CORS) - UPDATED ---
 const allowed = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
 
 app.use(cors({
@@ -61,7 +61,7 @@ app.use(cors({
   credentials: true
 }));
 
-// --- 5. BODY PARSER ---
+// --- 5. BODY PARSER (With Raw Body Capture for Stripe) ---
 app.use(express.json({ 
   limit: '10kb',
   verify: (req, res, buf) => {
@@ -79,8 +79,8 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser:true, useUnifiedTopolo
   .catch(err=> console.error('Mongo err', err));
 
 // --- 8. ROUTES ---
-// Apply strict limiter to auth routes
-app.use('/api/auth', authLimiter, authRoutes); 
+// Apply stricter limiter specifically to auth routes
+app.use('/api/auth', authLimiter, authRoutes); // <--- UPDATED
 
 app.use('/api/books', bookRoutes); 
 app.use('/api/orders', orderRoutes); 
