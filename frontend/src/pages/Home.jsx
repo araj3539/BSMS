@@ -3,36 +3,65 @@ import api from "../services/api";
 import BookCard from "../components/BookCard";
 import FilterSidebar from "../components/FilterSidebar";
 import { useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import SkeletonBookCard from "../components/SkeletonBookCard";
 import { useDebounce } from '../hooks/useDebounce';
 
-// --- Trust Features Component ---
-function TrustBar() {
-  const features = [
-    { icon: "🚚", title: "Free Shipping", desc: "On orders over ₹500" },
-    { icon: "🛡️", title: "Secure Payment", desc: "100% protected transactions" },
-    { icon: "⚡", title: "Fast Delivery", desc: "Dispatch within 24 hours" },
-    { icon: "↩️", title: "Easy Returns", desc: "7-day return policy" },
-  ];
+// --- COMPONENTS ---
 
+function TrustBadge({ icon, title, desc }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-b border-slate-100">
-      {features.map((f, i) => (
-        <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white hover:shadow-sm transition-all duration-300">
-          <span className="text-2xl bg-indigo-50 w-10 h-10 flex items-center justify-center rounded-lg shadow-sm">{f.icon}</span>
-          <div>
-            <h4 className="font-bold text-slate-800 text-sm leading-tight">{f.title}</h4>
-            <p className="text-[11px] text-slate-500 font-medium">{f.desc}</p>
-          </div>
+    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 border border-white/60 shadow-sm backdrop-blur-md hover:bg-white hover:shadow-md transition-all duration-300">
+      <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-2xl text-indigo-600 shadow-inner">
+        {icon}
+      </div>
+      <div>
+        <h4 className="font-bold text-slate-800 text-sm">{title}</h4>
+        <p className="text-xs text-slate-500 font-medium">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function CategoryPill({ label, active, onClick }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all whitespace-nowrap shadow-sm border ${
+        active 
+        ? 'bg-slate-900 text-white border-slate-900 shadow-indigo-500/20' 
+        : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Newsletter() {
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 md:p-16 text-center text-white shadow-2xl isolate">
+      {/* Abstract Shapes */}
+      <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/30 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-0 right-0 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-fuchsia-500/30 rounded-full blur-[100px] pointer-events-none"></div>
+      
+      <div className="relative z-10 max-w-2xl mx-auto space-y-6">
+        <h2 className="text-3xl md:text-4xl font-serif font-bold">Unlock Secret Chapters</h2>
+        <p className="text-indigo-200 text-lg">Join 10,000+ readers. Get monthly book recommendations and exclusive flash sale access.</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input placeholder="Enter your email" className="flex-1 px-6 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 backdrop-blur-sm" />
+          <button className="px-8 py-4 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition-colors shadow-lg">Subscribe</button>
         </div>
-      ))}
+        <p className="text-xs text-indigo-400/60">No spam, just good stories. Unsubscribe anytime.</p>
+      </div>
     </div>
   );
 }
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { scrollY } = useScroll();
+  const y1 = useTransform(scrollY, [0, 500], [0, 200]); // Parallax effect
 
   const [filters, setFilters] = useState({
     minPrice: searchParams.get("minPrice") || "",
@@ -51,6 +80,9 @@ export default function Home() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Common categories for quick filters
+  const QUICK_CATEGORIES = ["Fiction", "Sci-Fi", "Romance", "Mystery", "Business", "Self-Help"];
+
   useEffect(() => {
     fetchBooks();
     const params = { page, limit };
@@ -62,7 +94,8 @@ export default function Home() {
     if (sortBy !== "newest") params.sort = sortBy;
 
     setSearchParams(params, { replace: true });
-    fetchBooks();
+    // Scroll to top of grid when page changes (not initial load)
+    if(page > 1) document.getElementById('book-grid')?.scrollIntoView({ behavior: 'smooth' });
   }, [page, limit, debouncedQ, filters, sortBy]);
 
   async function fetchBooks() {
@@ -85,215 +118,240 @@ export default function Home() {
     setPage(1);
   }
 
-  function onSearch(e) {
-    e.preventDefault();
-    setPage(1);
-  }
-
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-500 selection:text-white">
       
       {/* --- HERO SECTION --- */}
-      <div className="relative bg-slate-900 py-24 lg:py-32 overflow-hidden isolation-auto">
-        {/* Animated Background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-1/2 -right-1/4 w-[80vw] h-[80vw] rounded-full bg-indigo-600/20 blur-[120px] animate-pulse"></div>
-          <div className="absolute -bottom-1/2 -left-1/4 w-[60vw] h-[60vw] rounded-full bg-fuchsia-600/10 blur-[100px]"></div>
-          <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
+      <div className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        {/* Animated Background Mesh */}
+        <div className="absolute inset-0 z-0">
+           <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[120px] mix-blend-multiply animate-blob"></div>
+           <div className="absolute top-[20%] left-[-10%] w-[600px] h-[600px] bg-gradient-to-tr from-rose-200/40 to-orange-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-2000"></div>
+           <div className="absolute bottom-[-20%] left-[20%] w-[600px] h-[600px] bg-gradient-to-t from-emerald-200/40 to-teal-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-4000"></div>
+           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/noise.png')] opacity-20 mix-blend-overlay"></div>
         </div>
 
         <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
+          <div className="flex flex-col lg:flex-row items-center gap-16">
+            
+            {/* Left: Text Content */}
             <motion.div 
-              initial={{ opacity: 0, y: 30 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ duration: 0.7, ease: "easeOut" }}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="flex-1 text-center lg:text-left space-y-8"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-indigo-200 text-xs font-bold uppercase tracking-widest shadow-xl mb-6 hover:bg-white/10 transition-colors cursor-default">
-                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                The #1 Online Bookstore
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/60 border border-white/50 backdrop-blur-sm text-indigo-600 text-xs font-bold uppercase tracking-widest shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </span>
+                New Arrivals In Stock
               </div>
               
-              <h1 className="text-5xl md:text-7xl font-serif font-bold text-white leading-tight drop-shadow-sm">
-                Stories That <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">Ignite Your Mind.</span>
+              <h1 className="text-5xl lg:text-7xl font-serif font-bold text-slate-900 leading-[1.1]">
+                Find Stories That <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Resonate.</span>
               </h1>
               
-              <p className="text-lg md:text-xl text-slate-300 font-light leading-relaxed max-w-2xl mx-auto mt-6">
-                From timeless classics to trending bestsellers, find the books that shape your world. Delivered fast, packaged with care.
+              <p className="text-lg text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0">
+                A curated sanctuary for book lovers. Discover bestsellers, rare finds, and timeless classics delivered with care.
               </p>
+
+              {/* Search Bar (Hero) */}
+              <div className="relative max-w-lg mx-auto lg:mx-0 group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+                <form 
+                  onSubmit={(e) => { e.preventDefault(); document.getElementById('book-grid').scrollIntoView({behavior:'smooth'}); }}
+                  className="relative flex items-center bg-white rounded-xl p-2 shadow-xl ring-1 ring-slate-200"
+                >
+                  <div className="pl-4 text-slate-400">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </div>
+                  <input
+                    value={q}
+                    onChange={(e) => { setQ(e.target.value); setPage(1); }}
+                    placeholder="Search by Title, Author, or ISBN..."
+                    className="flex-1 bg-transparent px-4 py-3 text-slate-900 placeholder-slate-400 font-medium focus:outline-none w-full"
+                  />
+                  <button className="bg-slate-900 text-white hover:bg-indigo-600 px-6 py-3 rounded-lg font-bold text-sm transition-all shadow-md">
+                    Explore
+                  </button>
+                </form>
+              </div>
+
+              {/* Trust Badges */}
+              <div className="grid grid-cols-2 gap-4 pt-4 opacity-90">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">🚚</div>
+                    <div className="text-left"><p className="font-bold text-slate-900 text-sm">Free Shipping</p><p className="text-[10px] text-slate-500">Orders over ₹500</p></div>
+                 </div>
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">🛡️</div>
+                    <div className="text-left"><p className="font-bold text-slate-900 text-sm">Secure Payment</p><p className="text-[10px] text-slate-500">100% Protected</p></div>
+                 </div>
+              </div>
             </motion.div>
 
-            {/* Search Bar */}
-            <motion.form
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              transition={{ duration: 0.5, delay: 0.2 }}
-              onSubmit={onSearch}
-              className="relative max-w-xl mx-auto group z-20"
+            {/* Right: 3D Floating Elements */}
+            <motion.div 
+              style={{ y: y1 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.2 }}
+              className="flex-1 relative hidden lg:block"
             >
-              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-              <div className="relative flex items-center bg-white/10 backdrop-blur-xl border border-white/20 rounded-full p-2 shadow-2xl ring-1 ring-white/10 focus-within:ring-indigo-400/50 transition-all">
-                <div className="pl-4 text-indigo-300">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                </div>
-                <input
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search by title, author, or ISBN..."
-                  className="flex-1 bg-transparent px-4 py-3 text-white placeholder-slate-400 font-medium focus:outline-none w-full"
-                />
-                <button className="bg-white text-slate-900 hover:bg-indigo-50 px-8 py-3 rounded-full font-bold text-sm transition-all transform hover:scale-[1.02] shadow-lg active:scale-95">
-                  Search
-                </button>
-              </div>
-            </motion.form>
+               <div className="relative w-[500px] h-[600px] mx-auto perspective-1000">
+                  {/* Floating Cards / Books Effect */}
+                  <motion.div 
+                    animate={{ y: [0, -20, 0], rotate: [0, 2, 0] }}
+                    transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+                    className="absolute top-10 left-10 w-64 h-80 bg-slate-800 rounded-r-2xl rounded-l-md shadow-2xl border-l-8 border-slate-700 z-20 flex items-center justify-center overflow-hidden transform rotate-[-6deg]"
+                  >
+                     {/* Fake Book Cover Art */}
+                     <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900"></div>
+                     <div className="relative text-center p-6 border-2 border-white/10 m-4 h-[90%] rounded-lg flex flex-col justify-center">
+                        <div className="text-xs text-indigo-400 font-bold tracking-[0.2em] mb-2 uppercase">Bestseller</div>
+                        <h3 className="text-3xl font-serif text-white font-bold mb-2">The Art of <br/>Code</h3>
+                        <p className="text-slate-400 text-xs italic">Mastering the craft</p>
+                     </div>
+                  </motion.div>
+
+                  <motion.div 
+                    animate={{ y: [0, 30, 0], rotate: [0, -3, 0] }}
+                    transition={{ repeat: Infinity, duration: 7, ease: "easeInOut", delay: 1 }}
+                    className="absolute top-24 right-10 w-60 h-72 bg-white rounded-r-2xl rounded-l-md shadow-xl border-l-4 border-slate-200 z-10 flex items-center justify-center overflow-hidden transform rotate-[12deg]"
+                  >
+                     <div className="text-center p-4">
+                        <div className="w-16 h-16 bg-rose-100 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl">🌿</div>
+                        <h3 className="text-xl font-serif text-slate-800 font-bold">Modern <br/>Living</h3>
+                     </div>
+                  </motion.div>
+
+                  {/* Decorative Elements */}
+                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-yellow-400 rounded-full blur-3xl opacity-20"></div>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-slate-900/5 rounded-full"></div>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] border border-slate-900/5 rounded-full"></div>
+               </div>
+            </motion.div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-6 -mt-10 relative z-20">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2 md:p-6 max-w-5xl mx-auto">
-           <TrustBar />
-        </div>
-      </div>
-
-      {/* --- CONTENT SECTION --- */}
-      <div className="container mx-auto px-6 py-16 flex flex-col lg:flex-row gap-12">
+      {/* --- MAIN LAYOUT --- */}
+      <div id="book-grid" className="container mx-auto px-6 py-12 flex flex-col lg:flex-row gap-10">
+        
         {/* Sidebar */}
-        <aside className="w-full lg:w-72 flex-shrink-0">
+        <aside className="w-full lg:w-72 flex-shrink-0 order-2 lg:order-1">
           <div className="sticky top-28 space-y-8">
             <FilterSidebar onFilter={handleFilter} />
             
-            {/* Promo Banner in Sidebar */}
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white text-center shadow-lg relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-               <h4 className="font-serif font-bold text-xl mb-2 relative z-10">Summer Sale</h4>
-               <p className="text-indigo-100 text-sm mb-4 relative z-10">Get <span className="font-bold text-white">20% OFF</span> on all fiction books.</p>
-               <div className="inline-block bg-white/20 border border-white/20 rounded-lg px-3 py-1 font-mono text-sm font-bold tracking-wider relative z-10">SUMMER20</div>
+            {/* Promo Card */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg text-center group cursor-pointer">
+               <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+               <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">Weekly Deal</p>
+               <h3 className="text-2xl font-serif font-bold mb-2">Summer Reading</h3>
+               <p className="text-sm text-indigo-100 mb-4">Get up to 30% off on all fiction bestsellers.</p>
+               <div className="inline-block bg-white/20 backdrop-blur-md border border-white/20 px-4 py-2 rounded-lg font-mono text-sm font-bold tracking-wider">
+                  SUMMER30
+               </div>
             </div>
           </div>
         </aside>
 
-        {/* Main Grid */}
-        <main className="flex-1">
-          {/* Header & Controls */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 border-b border-slate-200 pb-6 gap-6">
-            <div>
-              <h2 className="text-3xl font-serif font-bold text-slate-900">
-                {q ? `Search: "${q}"` : filters.category ? `${filters.category}` : "All Books"}
-              </h2>
-              <p className="text-sm text-slate-500 mt-2 font-medium">
-                Showing <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">{books.length}</span> of {total} curated results
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="group relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                  className="appearance-none bg-white border border-slate-200 text-sm font-bold text-slate-700 pl-4 pr-10 py-2.5 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="newest">Newest Arrivals</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                  <option value="top_rated">Top Rated</option>
-                  <option value="bestsellers">Best Sellers</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-                </div>
-              </div>
-              
-              <div className="group relative">
-                <select
-                  value={limit}
-                  onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                  className="appearance-none bg-white border border-slate-200 text-sm font-bold text-slate-700 pl-4 pr-8 py-2.5 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value={8}>Show 8</option>
-                  <option value={12}>Show 12</option>
-                  <option value={24}>Show 24</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-                </div>
-              </div>
-            </div>
+        {/* Main Grid Area */}
+        <main className="flex-1 order-1 lg:order-2">
+          
+          {/* Quick Categories Bar */}
+          <div className="flex gap-3 overflow-x-auto pb-4 mb-6 scrollbar-hide">
+             <CategoryPill label="All Books" active={!filters.category} onClick={() => handleFilter({ category: '' })} />
+             {QUICK_CATEGORIES.map(cat => (
+                <CategoryPill 
+                  key={cat} 
+                  label={cat} 
+                  active={filters.category === cat} 
+                  onClick={() => handleFilter({ category: cat })} 
+                />
+             ))}
           </div>
 
-          {/* Grid */}
+          {/* Results Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-200 pb-4">
+             <div>
+                <h2 className="text-2xl font-serif font-bold text-slate-900">
+                   {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1 font-medium">Showing {books.length} of {total} results</p>
+             </div>
+             
+             {/* Sort Dropdown */}
+             <div className="relative group">
+                <select 
+                   value={sortBy} 
+                   onChange={e => { setSortBy(e.target.value); setPage(1); }} 
+                   className="appearance-none bg-white border border-slate-200 pl-4 pr-10 py-2 rounded-xl text-sm font-bold text-slate-700 cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none hover:border-indigo-300 transition-all shadow-sm"
+                >
+                   <option value="newest">Newest Arrivals</option>
+                   <option value="price_asc">Price: Low to High</option>
+                   <option value="price_desc">Price: High to Low</option>
+                   <option value="top_rated">Top Rated</option>
+                   <option value="bestsellers">Best Sellers</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+             </div>
+          </div>
+
+          {/* Books Grid */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
-              {[...Array(limit)].map((_, i) => <SkeletonBookCard key={i} />)}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => <SkeletonBookCard key={i} />)}
             </div>
           ) : (
             <>
               {books.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300 text-center px-6">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-4xl shadow-inner">📚</div>
-                  <h3 className="text-2xl font-serif font-bold text-slate-900 mb-2">No books found</h3>
-                  <p className="text-slate-500 max-w-md mx-auto mb-8">We couldn't find any books matching your search. Try adjusting your filters or search terms.</p>
-                  <button
-                    onClick={() => {
-                      setQ("");
-                      setFilters({ minPrice: "", maxPrice: "", minRating: "", category: "" });
-                    }}
-                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
-                  >
-                    Clear All Filters
-                  </button>
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                   <div className="text-6xl mb-4 opacity-30">📚</div>
+                   <h3 className="text-xl font-bold text-slate-900">No books found</h3>
+                   <p className="text-slate-500 mt-2 mb-6 text-center max-w-xs">We couldn't find matches for your search. Try checking your spelling or clear filters.</p>
+                   <button onClick={() => { setQ(""); setFilters({ minPrice: "", maxPrice: "", minRating: "", category: "" }); }} className="text-indigo-600 font-bold hover:underline">Clear all filters</button>
                 </div>
               ) : (
-                <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-x-8 gap-y-12">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10">
                   <AnimatePresence mode="popLayout">
                     {books.map((b, i) => (
                       <motion.div
                         key={b._id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.4, delay: i * 0.05, ease: "backOut" }}
+                        transition={{ duration: 0.4, delay: i * 0.05 }}
                       >
                         <BookCard book={b} />
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                </motion.div>
+                </div>
               )}
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-20 flex justify-center items-center gap-3">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                  </button>
-                  
-                  <span className="text-sm font-bold text-slate-700 bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm tracking-wide">
-                    Page <span className="text-indigo-600">{page}</span> of {totalPages}
-                  </span>
-                  
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                  </button>
+                <div className="mt-16 flex justify-center items-center gap-4">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 disabled:opacity-50 transition-all font-bold text-slate-600">←</button>
+                  <span className="text-sm font-bold text-slate-500 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">Page {page} of {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 disabled:opacity-50 transition-all font-bold text-slate-600">→</button>
                 </div>
               )}
             </>
           )}
         </main>
+      </div>
+
+      {/* --- PRE-FOOTER SECTION --- */}
+      <div className="container mx-auto px-6 pb-20">
+         <Newsletter />
       </div>
     </div>
   );
