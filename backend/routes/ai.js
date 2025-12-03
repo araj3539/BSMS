@@ -64,7 +64,7 @@ router.post('/chat', async (req, res) => {
 
     // --- 3. SYSTEM PROMPT ---
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash", // Using latest stable flash model (or 1.5-flash)
+      model: "gemini-2.5-flash",
       systemInstruction: `
         You are the Inventory Manager for "BookShop". 
         
