@@ -25,6 +25,7 @@ import { Toaster } from 'react-hot-toast';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 import AdminAuditLogs from "./pages/AdminAuditLogs";
+import ChatWidget from "./components/ChatWidget";
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/admin/logs" element={<AdminAuditLogs />} />
           </Route>
         </Routes>
+        <ChatWidget />
       </main>
 
       {/* Footer added at the bottom */}

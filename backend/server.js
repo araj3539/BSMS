@@ -88,6 +88,8 @@ app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/reports', require('./routes/reports'));
 
+app.use('/api/ai', require('./routes/ai'));
+
 // --- 9. PING ---
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
