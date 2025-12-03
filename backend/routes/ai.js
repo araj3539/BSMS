@@ -13,10 +13,11 @@ router.post('/chat', async (req, res) => {
     let inventoryContext = "No specific books found in stock matching keywords.";
     
     try {
-      // Create a broad search from the user's message
-      const keywords = message.split(' ').filter(w => w.length > 3); // Filter short words
+      // 1. Extract keywords (filtering out small words)
+      const keywords = message.split(' ').filter(w => w.length > 3);
       
       if (keywords.length > 0) {
+        // 2. Build a MongoDB query
         const regexQueries = keywords.map(k => ({ 
           $or: [
             { title: { $regex: k, $options: 'i' } },
@@ -26,12 +27,12 @@ router.post('/chat', async (req, res) => {
           ]
         }));
 
-        // Fetch up to 8 relevant books from YOUR database
+        // 3. Fetch RELEVANT books only
         const books = await Book.find({ $or: regexQueries }).limit(8).select('title author price stock category description');
 
         if (books.length > 0) {
           inventoryContext = books.map(b => 
-            `- TITLE: "${b.title}"\n  AUTHOR: ${b.author}\n  PRICE: ₹${b.price}\n  STATUS: ${b.stock > 0 ? 'In Stock' : 'Out of Stock'}\n  SUMMARY: ${b.description.substring(0, 100)}...`
+            `- **${b.title}** by ${b.author} (₹${b.price})\n  *${b.stock > 0 ? 'In Stock' : 'Out of Stock'}* - ${b.description.substring(0, 120)}...`
           ).join('\n\n');
         }
       }
@@ -39,39 +40,44 @@ router.post('/chat', async (req, res) => {
       console.error("RAG Search Error", err);
     }
 
-    // --- 2. Strict System Prompt ---
+    // --- 2. THE STRICT SYSTEM PROMPT ---
     const systemPrompt = `
-      You are the specialized AI Sales Assistant for "BookShop". You are NOT a general chatbot.
+      You are the dedicated Inventory Manager for "BookShop". 
+      You are NOT a general purpose AI. You do NOT have access to the internet, news, or general knowledge.
 
-      ### YOUR RULES (FOLLOW STRICTLY):
-      1. **SCOPE RESTRICTION:** You ONLY answer questions about books, authors, and shopping at this store. 
-         - If the user asks about the weather, math, coding, or general life advice, politely refuse: "I can only assist you with books and our store inventory."
+      ### 🚫 STRICT REFUSAL PROTOCOL (MUST FOLLOW):
+      If the user asks about:
+      - **News / Current Events** (e.g., "today's news", "who won the game")
+      - **General Facts** (e.g., "capital of France", "what is AI", "define love")
+      - **Personal Questions** (e.g., "what is your name", "how do you work")
+      - **Math / Coding**
       
-      2. **INVENTORY TRUTH:** - The "STORE INVENTORY" section below contains the *only* books you know exist.
-         - **NEVER** recommend a book that is not in the "STORE INVENTORY" list. 
-         - If the user asks for a book not in the list, say: "I'm sorry, we don't have that in stock right now," and suggest a relevant alternative from the list if possible.
+      ...You MUST reply with EXACTLY this phrase (varied slightly):
+      "I am designed only to help you explore the BookShop inventory. Would you like a book recommendation?"
 
-      3. **GREETINGS:** - If the user says "hi", "hello", or "hey", reply as a shopkeeper: "Welcome to BookShop! Are you looking for a specific genre, or would you like a recommendation from our collection?"
+      ### ✅ ALLOWED ACTIONS:
+      1. Recommend books ONLY from the "STORE INVENTORY" list below.
+      2. Summarize the book provided in the "CURRENT CONTEXT".
+      3. Check prices or stock status based ONLY on the data below.
 
-      4. **TONE:** Professional, helpful, and concise. Keep answers short (under 3 sentences unless asked for a summary).
-
-      5.**FORMATTING:** Use Markdown. Use **bold** for book titles and prices. Use lists (-) for recommendations.
+      ### 📚 STORE INVENTORY (The ONLY books you know exist):
+      ${inventoryContext}
 
       ### CURRENT CONTEXT:
-      ${context ? `The user is currently looking at the product page for: "${context.title}" by ${context.author}. Focus on this book if asked details.` : "The user is browsing the home page."}
-
-      ### STORE INVENTORY (The only books you sell):
-      ${inventoryContext}
+      ${context ? `User is viewing: **${context.title}** by ${context.author}.` : "User is browsing the shelves."}
     `;
 
-    // --- 3. Call Perplexity API (Sonar) ---
+    // --- 3. Call Perplexity API ---
     const response = await axios.post(PERPLEXITY_API_URL, {
-      model: "sonar-reasoning", 
+      model: "sonar", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
       ],
-      temperature: 0.1 // Low temperature = strictly follow facts/inventory
+      // Zero temperature forces the model to be as deterministic/robotic as possible
+      temperature: 0, 
+      // Limit token usage to prevent long rambling news reports
+      max_tokens: 250 
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
@@ -84,7 +90,6 @@ router.post('/chat', async (req, res) => {
 
   } catch (error) {
     console.error("AI Error:", error.response?.data || error.message);
-    // Graceful fallback if API fails
     res.status(500).json({ reply: "I'm having trouble checking the shelves right now. Please browse our catalog manually!" });
   }
 });
