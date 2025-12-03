@@ -64,7 +64,7 @@ router.post('/chat', async (req, res) => {
 
     // 3. Call Perplexity API
     const response = await axios.post(PERPLEXITY_API_URL, {
-      model: "llama-3.1-sonar-small-128k-online", // Or "sonar-medium-online"
+      model: "sonar",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message }
