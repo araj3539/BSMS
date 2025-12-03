@@ -30,7 +30,6 @@ router.post('/chat', async (req, res) => {
       }
 
       // FALLBACK: If "Hi", "Recommend me", or "Empty Search" -> Show Bestsellers
-      // This prevents the "I have no books" error on greetings.
       if (books.length === 0) {
          books = await Book.find().sort({ soldCount: -1 }).limit(5).select('title author price stock category description');
          inventoryContext += "NOTE: User query was generic or yielded no results. These are our BESTSELLERS:\n";
@@ -51,14 +50,21 @@ router.post('/chat', async (req, res) => {
 
     // --- 2. FORMAT HISTORY FOR GEMINI ---
     // Gemini expects { role: 'user' | 'model', parts: [{ text: ... }] }
-    const formattedHistory = (history || []).map(msg => ({
+    let formattedHistory = (history || []).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model', 
         parts: [{ text: msg.text }]
     }));
 
+    // --- FIX: SANITIZE HISTORY ---
+    // Gemini crashes if history starts with 'model'. 
+    // We must remove the initial "Hi! I'm your assistant" message if it's at the start.
+    if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+        formattedHistory.shift();
+    }
+
     // --- 3. SYSTEM PROMPT ---
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash", 
+      model: "gemini-2.0-flash", // Using latest stable flash model (or 1.5-flash)
       systemInstruction: `
         You are the Inventory Manager for "BookShop". 
         
