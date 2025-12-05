@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react"; // <--- Added useRef
 import api from "../services/api";
 import BookCard from "../components/BookCard";
 import FilterSidebar from "../components/FilterSidebar";
@@ -15,7 +15,6 @@ import CustomSelect from "../components/CustomSelect";
 
 // --- COMPONENTS ---
 
-// Restored & Responsive TrustBadge
 function TrustBadge({ icon, title, desc }) {
   return (
     <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-white/50 border border-white/60 shadow-sm backdrop-blur-md hover:bg-white hover:shadow-md transition-all duration-300">
@@ -77,12 +76,13 @@ function Newsletter() {
   );
 }
 
-// --- MAIN PAGE ---
-
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]); 
+
+  // --- NEW: Track first render to prevent auto-scroll on landing ---
+  const isFirstRender = useRef(true);
 
   const [filters, setFilters] = useState({
     minPrice: searchParams.get("minPrice") || "",
@@ -116,9 +116,16 @@ export default function Home() {
     if (sortBy !== "newest") params.sort = sortBy;
 
     setSearchParams(params, { replace: true });
-    // Scroll to top of grid when page changes (not initial load)
-    if (page > 1)
-      document.getElementById("book-grid")?.scrollIntoView({ behavior: "smooth" });
+
+    // --- FIX START: Logic to handle scroll ---
+    // If it's NOT the first load, OR if we are on a deep page (like page 2 link), scroll to grid.
+    if (!isFirstRender.current) {
+        document.getElementById("book-grid")?.scrollIntoView({ behavior: "smooth" });
+    }
+    
+    isFirstRender.current = false;
+    // --- FIX END ---
+
   }, [page, limit, debouncedQ, filters, sortBy]);
 
   async function fetchBooks() {
@@ -186,7 +193,7 @@ export default function Home() {
                 finds, and timeless classics delivered with care.
               </p>
 
-              {/* Search Bar */}
+              {/* Search Bar (Hero) */}
               <div className="relative max-w-lg mx-auto lg:mx-0 group px-2 md:px-0">
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
                 <form
@@ -217,7 +224,7 @@ export default function Home() {
                 </form>
               </div>
 
-              {/* Trust Badges - Using the Restored Component */}
+              {/* Trust Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 opacity-90 px-4 md:px-0 max-w-md mx-auto lg:mx-0">
                 <TrustBadge 
                   icon="🚚" 
