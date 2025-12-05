@@ -7,6 +7,7 @@ import ReviewList from "../components/ReviewList";
 import ReviewForm from "../components/ReviewForm";
 import RatingStars from "../components/RatingStars";
 import { syncCart } from '../utils/cart';
+import SkeletonBookDetail from "../components/SkeletonBookDetail";
 
 export default function BookDetail() {
   const { id } = useParams();
@@ -22,6 +23,11 @@ export default function BookDetail() {
       const r = await api.get("/books/" + id);
       setBook(r.data);
     } catch (err) { console.error(err); }
+    finally {
+      // Add a small artificial delay for smoothness (optional)
+      // setTimeout(() => setLoading(false), 300); 
+      setLoading(false);
+    }
   }
 
   function addToCart() {
@@ -44,7 +50,7 @@ export default function BookDetail() {
     setQty(Math.max(1, Math.min(book.stock, Math.floor(val))));
   }
 
-  if (!book) return <div className="flex justify-center p-20"><div className="loader"></div></div>;
+  if (loading || !book) return <SkeletonBookDetail />;
   
   const isOutOfStock = book.stock === 0;
 
