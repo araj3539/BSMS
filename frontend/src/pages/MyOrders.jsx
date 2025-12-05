@@ -1,3 +1,4 @@
+// src/pages/MyOrders.jsx
 import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
@@ -24,8 +25,18 @@ export default function MyOrders() {
     api
       .get("/orders")
       .then((res) => {
-        setOrders(res.data);
-        setFilteredOrders(res.data);
+        // --- FIX STARTS HERE ---
+        // Handle both Array (Customer) and Object (Admin) responses
+        let orderData = [];
+        if (Array.isArray(res.data)) {
+          orderData = res.data;
+        } else if (res.data && Array.isArray(res.data.orders)) {
+          orderData = res.data.orders;
+        }
+        
+        setOrders(orderData);
+        setFilteredOrders(orderData);
+        // --- FIX ENDS HERE ---
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -67,7 +78,12 @@ export default function MyOrders() {
 
         <div className="flex gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
-            {/* ... search input ... */}
+             <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search orders..."
+              className="w-full pl-4 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm text-sm"
+            />
           </div>
 
           <CustomSelect
