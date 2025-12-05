@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import SkeletonBookCard from "../components/SkeletonBookCard";
 import { useDebounce } from '../hooks/useDebounce';
+import CustomSelect from "../components/CustomSelect";
 
 // --- COMPONENTS ---
 
@@ -278,32 +279,40 @@ export default function Home() {
           </div>
 
           {/* Results Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-200 pb-4">
-             <div>
-                <h2 className="text-2xl font-serif font-bold text-slate-900">
-                   {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1 font-medium">Showing {books.length} of {total} results</p>
-             </div>
-             
-             {/* Sort Dropdown */}
-             <div className="relative group">
-                <select 
-                   value={sortBy} 
-                   onChange={e => { setSortBy(e.target.value); setPage(1); }} 
-                   className="appearance-none bg-white border border-slate-200 pl-4 pr-10 py-2 rounded-xl text-sm font-bold text-slate-700 cursor-pointer focus:ring-2 focus:ring-indigo-500 outline-none hover:border-indigo-300 transition-all shadow-sm"
-                >
-                   <option value="newest">Newest Arrivals</option>
-                   <option value="price_asc">Price: Low to High</option>
-                   <option value="price_desc">Price: High to Low</option>
-                   <option value="top_rated">Top Rated</option>
-                   <option value="bestsellers">Best Sellers</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
-             </div>
-          </div>
+          <div className="flex flex-col sm:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+    <div>
+    <h2 className="text-2xl font-serif font-bold text-slate-900 dark:text-white">
+        {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
+    </h2>
+    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Showing <span className="text-slate-900 dark:text-white font-bold">{books.length}</span> of {total} results</p>
+    </div>
+    
+    <div className="flex gap-3 w-full sm:w-auto">
+        <CustomSelect 
+            value={sortBy}
+            onChange={(val) => { setSortBy(val); setPage(1); }}
+            options={[
+                { value: "newest", label: "Newest Arrivals" },
+                { value: "price_asc", label: "Price: Low to High" },
+                { value: "price_desc", label: "Price: High to Low" },
+                { value: "top_rated", label: "Top Rated" },
+                { value: "bestsellers", label: "Best Sellers" },
+            ]}
+            className="w-full sm:w-48"
+        />
+        
+        <CustomSelect 
+            value={limit}
+            onChange={(val) => { setLimit(Number(val)); setPage(1); }}
+            options={[
+                { value: 8, label: "Show 8" },
+                { value: 12, label: "Show 12" },
+                { value: 24, label: "Show 24" },
+            ]}
+            className="w-full sm:w-32"
+        />
+    </div>
+</div>
 
           {/* Books Grid */}
           {loading ? (
