@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { useDebounce } from "../hooks/useDebounce";
 import { motion, AnimatePresence } from "framer-motion";
 
+// --- CLOUDINARY DETAILS ---
 const CLOUDINARY_CLOUD_NAME = "dnq0yso32";
 const CLOUDINARY_UPLOAD_PRESET = "unsigned_upload_preset";
 const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`;
@@ -155,8 +156,8 @@ export default function AdminBooks() {
                     ) : null}
                  </div>
 
-                 {/* Hover Actions (Always visible on mobile touch sometimes, so good to have distinct buttons) */}
-                 <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                 {/* Desktop Actions: Hover Overlay (Hidden on Mobile) */}
+                 <div className="hidden md:flex absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center gap-3">
                     <button onClick={() => setEditing(b)} className="bg-white text-slate-800 p-2.5 rounded-full hover:scale-110 transition-transform shadow-lg" title="Edit">
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
@@ -169,9 +170,22 @@ export default function AdminBooks() {
               <div className="p-4 flex flex-col flex-1">
                  <h3 className="font-bold text-slate-900 line-clamp-1 text-sm md:text-base" title={b.title}>{b.title}</h3>
                  <p className="text-xs text-slate-500 mb-3">{b.author}</p>
-                 <div className="mt-auto flex justify-between items-center border-t border-slate-50 pt-3">
-                    <span className="font-bold text-slate-900 text-sm">₹{b.price}</span>
-                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">Stock: {b.stock}</span>
+                 
+                 <div className="mt-auto pt-3 border-t border-slate-50">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="font-bold text-slate-900 text-sm">₹{b.price}</span>
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium">Stock: {b.stock}</span>
+                    </div>
+
+                    {/* Mobile Actions: Explicit Buttons (Hidden on Desktop) */}
+                    <div className="flex md:hidden gap-2">
+                        <button onClick={() => setEditing(b)} className="flex-1 bg-slate-100 text-slate-600 text-[10px] font-bold py-2 rounded-lg hover:bg-slate-200">
+                            Edit
+                        </button>
+                        <button onClick={() => deleteBook(b._id)} className="flex-1 bg-red-50 text-red-600 text-[10px] font-bold py-2 rounded-lg hover:bg-red-100">
+                            Delete
+                        </button>
+                    </div>
                  </div>
               </div>
             </motion.div>
