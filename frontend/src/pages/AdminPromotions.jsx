@@ -53,18 +53,18 @@ export default function AdminPromotions(){
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-            <h2 className="text-3xl font-serif font-bold text-slate-900">Promotions</h2>
-            <p className="text-slate-500 font-medium mt-1">Manage discount codes</p>
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">Promotions</h2>
+            <p className="text-slate-500 font-medium mt-1 text-sm">Manage discount codes</p>
         </div>
-        <button onClick={()=> { closeModal(); setCreating(true); }} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+        <button onClick={()=> { closeModal(); setCreating(true); }} className="w-full sm:w-auto bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
             + New Promo
         </button>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <AnimatePresence>
         {promos.map(p => (
           <motion.div 
@@ -78,9 +78,9 @@ export default function AdminPromotions(){
             {/* Visual Header */}
             <div className={`h-2 w-full ${p.active ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-slate-300'}`}></div>
             
-            <div className="p-6">
+            <div className="p-5 md:p-6">
                 <div className="flex justify-between items-start mb-4">
-                    <div className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1 font-mono font-bold text-slate-700 text-lg tracking-widest uppercase">
+                    <div className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1 font-mono font-bold text-slate-700 text-base md:text-lg tracking-widest uppercase truncate max-w-[70%]">
                         {p.code}
                     </div>
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
@@ -88,8 +88,8 @@ export default function AdminPromotions(){
                     </span>
                 </div>
                 
-                <h3 className="font-bold text-slate-900 text-lg mb-1">{p.name}</h3>
-                <div className="text-3xl font-bold text-indigo-600 tracking-tight mb-4">
+                <h3 className="font-bold text-slate-900 text-base md:text-lg mb-1 truncate">{p.name}</h3>
+                <div className="text-2xl md:text-3xl font-bold text-indigo-600 tracking-tight mb-4">
                     {p.type === 'percent' ? `${p.value}%` : `₹${p.value}`} <span className="text-base text-slate-400 font-medium">OFF</span>
                 </div>
 
@@ -112,8 +112,8 @@ export default function AdminPromotions(){
       {(creating || editing) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeModal}></div>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-in fade-in zoom-in-95 p-8">
-            <h3 className="font-serif font-bold text-2xl text-slate-900 mb-6">{editing ? 'Edit Promotion' : 'Create Promotion'}</h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 animate-in fade-in zoom-in-95 p-6 md:p-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <h3 className="font-serif font-bold text-xl md:text-2xl text-slate-900 mb-6">{editing ? 'Edit Promotion' : 'Create Promotion'}</h3>
             
             <div className="space-y-5">
                 <div>

@@ -21,10 +21,10 @@ export default function AdminAuditLogs() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div>
-        <h2 className="text-3xl font-serif font-bold text-slate-900">Security Audit Logs</h2>
-        <p className="text-slate-500 mt-1">Monitor administrative actions and system security.</p>
+        <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">Security Audit Logs</h2>
+        <p className="text-slate-500 mt-1 text-sm">Monitor administrative actions and system security.</p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -33,8 +33,8 @@ export default function AdminAuditLogs() {
         ) : logs.length === 0 ? (
           <div className="p-12 text-center text-slate-500">No logs found.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 font-bold">
                   <th className="p-4">Action</th>
