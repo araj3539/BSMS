@@ -24,7 +24,6 @@ export default function MyOrders() {
     api
       .get("/orders")
       .then((res) => {
-        // Handle both Array (User) and Object (Admin) responses safely
         let orderData = [];
         if (Array.isArray(res.data)) {
           orderData = res.data;
@@ -53,28 +52,20 @@ export default function MyOrders() {
     setFilteredOrders(res);
   }, [statusFilter, search, orders]);
 
-  if (loading)
-    return (
-      <div className="flex justify-center p-20">
-        <div className="loader"></div>
-      </div>
-    );
-
   return (
-    <div className="max-w-5xl mx-auto py-6 md:py-10 px-4 md:px-6 min-h-screen pb-24">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-8 gap-4">
+    <div className="max-w-5xl mx-auto py-10 px-6 min-h-screen">
+      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
         <div>
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 tracking-tight">
+          <h2 className="text-4xl font-serif font-bold text-slate-900 tracking-tight">
             My Orders
           </h2>
-          <p className="text-sm md:text-base text-slate-500 mt-1 font-medium">
+          <p className="text-slate-500 mt-2 font-medium">
             Track your purchase history
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
              <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -98,7 +89,21 @@ export default function MyOrders() {
         </div>
       </div>
 
-      {filteredOrders.length === 0 ? (
+      {loading ? (
+        // --- ORDERS SKELETON ---
+        <div className="space-y-6 animate-pulse">
+           {[1, 2, 3].map(i => (
+             <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-40 flex flex-col justify-between">
+                <div className="flex justify-between">
+                   <div className="h-5 w-1/3 bg-slate-200 rounded"></div>
+                   <div className="h-5 w-20 bg-slate-200 rounded-full"></div>
+                </div>
+                <div className="h-4 w-1/2 bg-slate-200 rounded"></div>
+                <div className="h-12 w-full bg-slate-100 rounded-xl mt-2"></div>
+             </div>
+           ))}
+        </div>
+      ) : filteredOrders.length === 0 ? (
         <div className="text-center py-24 bg-white/60 rounded-3xl border border-dashed border-slate-300">
           <p className="text-slate-500 text-lg font-medium">No orders found.</p>
           <button
@@ -112,7 +117,7 @@ export default function MyOrders() {
           </button>
         </div>
       ) : (
-        <div className="space-y-4 md:space-y-6">
+        <div className="space-y-6">
           <AnimatePresence>
             {filteredOrders.map((order) => (
               <motion.div
@@ -122,21 +127,21 @@ export default function MyOrders() {
                 key={order._id}
                 className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all group"
               >
-                {/* Order Header */}
-                <div className="bg-slate-50/80 px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3">
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="bg-white p-1.5 md:p-2 rounded-lg border border-slate-200 shadow-sm">
-                      <span className="font-mono font-bold text-slate-800 tracking-wider text-xs md:text-sm">
+                {/* Header */}
+                <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                      <span className="font-mono font-bold text-slate-800 tracking-wider">
                         #{order._id.slice(-6).toUpperCase()}
                       </span>
                     </div>
-                    <div className="text-[10px] md:text-xs text-slate-500 font-medium">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                    <div className="text-xs text-slate-500 font-medium">
+                      Placed on {new Date(order.createdAt).toLocaleDateString()}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-auto">
+                  <div className="flex items-center gap-4">
                     <span
-                      className={`px-2 md:px-3 py-1 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wide border ${
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
                         STATUS_COLORS[order.status] || "bg-gray-100"
                       }`}
                     >
@@ -144,46 +149,46 @@ export default function MyOrders() {
                     </span>
                     <Link
                       to={`/order/${order._id}`}
-                      className="text-indigo-600 text-xs md:text-sm font-bold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                      className="text-indigo-600 text-sm font-bold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      Details &rarr;
+                      View Details &rarr;
                     </Link>
                   </div>
                 </div>
 
-                {/* Items & Total */}
-                <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="flex-1 space-y-2 w-full">
+                {/* Items */}
+                <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="flex-1 space-y-3 w-full">
                     {order.items.slice(0, 2).map((item, i) => (
                       <div
                         key={i}
                         className="flex justify-between items-center text-sm"
                       >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <span className="text-slate-400 font-bold text-xs md:text-sm flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400 font-bold">
                             x{item.qty}
                           </span>
-                          <span className="text-slate-700 font-medium truncate">
+                          <span className="text-slate-700 font-medium truncate max-w-[200px] md:max-w-xs">
                             {item.title}
                           </span>
                         </div>
-                        <span className="text-slate-900 font-bold text-xs md:text-sm pl-2">
+                        <span className="text-slate-900 font-bold">
                           ₹{item.price * item.qty}
                         </span>
                       </div>
                     ))}
                     {order.items.length > 2 && (
-                      <p className="text-[10px] md:text-xs text-slate-400 font-medium pl-6 md:pl-8">
+                      <p className="text-xs text-slate-400 font-medium pl-8">
                         + {order.items.length - 2} more items
                       </p>
                     )}
                   </div>
 
-                  <div className="w-full md:w-auto text-right border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-8 flex justify-between md:block items-center">
-                    <p className="text-[10px] md:text-xs text-slate-400 uppercase font-bold tracking-wider mb-0 md:mb-1">
+                  <div className="w-full md:w-auto text-right border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-8">
+                    <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">
                       Total Amount
                     </p>
-                    <p className="text-xl md:text-2xl font-serif font-bold text-slate-900">
+                    <p className="text-2xl font-serif font-bold text-slate-900">
                       ₹{order.totalAmount}
                     </p>
                   </div>
