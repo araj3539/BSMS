@@ -279,40 +279,31 @@ export default function Home() {
           </div>
 
           {/* Results Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-    <div>
-    <h2 className="text-2xl font-serif font-bold text-slate-900 dark:text-white">
-        {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
-    </h2>
-    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Showing <span className="text-slate-900 dark:text-white font-bold">{books.length}</span> of {total} results</p>
-    </div>
-    
-    <div className="flex gap-3 w-full sm:w-auto">
-        <CustomSelect 
-            value={sortBy}
-            onChange={(val) => { setSortBy(val); setPage(1); }}
-            options={[
-                { value: "newest", label: "Newest Arrivals" },
-                { value: "price_asc", label: "Price: Low to High" },
-                { value: "price_desc", label: "Price: High to Low" },
-                { value: "top_rated", label: "Top Rated" },
-                { value: "bestsellers", label: "Best Sellers" },
-            ]}
-            className="w-full sm:w-48"
-        />
-        
-        <CustomSelect 
-            value={limit}
-            onChange={(val) => { setLimit(Number(val)); setPage(1); }}
-            options={[
-                { value: 8, label: "Show 8" },
-                { value: 12, label: "Show 12" },
-                { value: 24, label: "Show 24" },
-            ]}
-            className="w-full sm:w-32"
-        />
-    </div>
-</div>
+          <div className="flex flex-col sm:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-200 pb-4">
+             <div>
+                {/* Explicit text-slate-900 ensures visibility on white background */}
+                <h2 className="text-2xl font-serif font-bold text-slate-900">
+                   {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1 font-medium">Showing <span className="text-slate-900 font-bold">{books.length}</span> of {total} results</p>
+             </div>
+             
+             {/* --- FIX: NEW CUSTOM SELECT --- */}
+             <div className="flex gap-3 w-full sm:w-auto">
+                <CustomSelect 
+                    value={sortBy}
+                    onChange={(val) => { setSortBy(val); setPage(1); }}
+                    options={[
+                        { value: "newest", label: "Newest Arrivals" },
+                        { value: "price_asc", label: "Price: Low to High" },
+                        { value: "price_desc", label: "Price: High to Low" },
+                        { value: "top_rated", label: "Top Rated" },
+                        { value: "bestsellers", label: "Best Sellers" },
+                    ]}
+                    className="w-full sm:w-48"
+                />
+             </div>
+          </div>
 
           {/* Books Grid */}
           {loading ? (
