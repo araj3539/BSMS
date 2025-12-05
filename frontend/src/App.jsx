@@ -1,8 +1,7 @@
-// src/App.jsx
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
-import Footer from "./components/Footer"; // <--- Import Footer
+import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import BookDetail from "./pages/BookDetail";
 import Cart from "./pages/Cart";
@@ -26,18 +25,19 @@ import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import ChatWidget from "./components/ChatWidget";
+import ScrollToTop from "./components/ScrollToTop"; // <--- IMPORT THIS
 
 export default function App() {
   return (
-    // Changed layout to flex-col to support sticky footer
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+      <ScrollToTop /> {/* <--- ADD THIS HERE */}
+      
       <Toaster position="bottom-right" toastOptions={{
         style: { background: '#1e293b', color: '#fff', borderRadius: '12px' }
       }} />
       
       <Header />
       
-      {/* flex-grow ensures this section takes up all available space */}
       <main className="container mx-auto p-4 md:px-6 flex-grow w-full max-w-7xl">
         <Routes>
           {/* Public Routes */}
@@ -49,7 +49,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           
-          {/* Protected Routes (Logged-in users only) */}
+          {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/my-orders" element={<MyOrders />} />
@@ -58,7 +58,7 @@ export default function App() {
             <Route path="/wishlist" element={<Wishlist />} />
           </Route>
 
-          {/* Admin Routes (Admin users only) */}
+          {/* Admin Routes */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/books" element={<AdminBooks />} />
@@ -72,7 +72,6 @@ export default function App() {
         <ChatWidget />
       </main>
 
-      {/* Footer added at the bottom */}
       <Footer />
     </div>
   );

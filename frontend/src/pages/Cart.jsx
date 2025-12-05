@@ -17,6 +17,7 @@ export default function Cart(){
 
   useEffect(() => {
     const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+    // If cart empty, no need to fetch details, stop loading immediately
     if (localCart.length === 0) { setCart([]); setLoading(false); return; }
 
     const ids = localCart.map(item => item.bookId);
@@ -78,13 +79,33 @@ export default function Cart(){
   const hasOOSItems = cart.some(item => item.stock === 0);
   const subtotal = cart.reduce((s, it)=> s + (it.price || 0) * (it.qty || 0), 0);
 
-  if (loading) return <div className="flex justify-center py-32"><div className="loader"></div></div>;
-
   return (
     <div className="max-w-6xl mx-auto py-12 px-6 min-h-[80vh]">
       <h2 className="text-4xl font-serif font-bold text-slate-900 mb-8 tracking-tight">Your Cart</h2>
       
-      {cart.length === 0 ? (
+      {loading ? (
+        // --- CART SKELETON ---
+        <div className="flex flex-col lg:flex-row gap-12 animate-pulse">
+           <div className="flex-1 space-y-6">
+              {[1, 2, 3].map(i => (
+                 <div key={i} className="flex gap-5 p-4 rounded-2xl border border-slate-200 bg-white">
+                    <div className="w-20 h-28 bg-slate-200 rounded-lg"></div>
+                    <div className="flex-1 space-y-3 py-1">
+                       <div className="h-5 w-2/3 bg-slate-200 rounded"></div>
+                       <div className="h-4 w-1/4 bg-slate-200 rounded"></div>
+                       <div className="flex justify-between mt-auto pt-2">
+                          <div className="h-8 w-24 bg-slate-200 rounded-xl"></div>
+                          <div className="h-5 w-16 bg-slate-200 rounded"></div>
+                       </div>
+                    </div>
+                 </div>
+              ))}
+           </div>
+           <div className="lg:w-96">
+              <div className="h-64 bg-slate-200 rounded-3xl"></div>
+           </div>
+        </div>
+      ) : cart.length === 0 ? (
         <div className="text-center py-24 bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300 animate-in fade-in zoom-in-95">
             <div className="text-6xl mb-4 opacity-50">🛒</div>
             <p className="text-slate-500 text-lg mb-6 font-medium">Your cart is currently empty.</p>

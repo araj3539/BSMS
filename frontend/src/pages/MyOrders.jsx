@@ -1,4 +1,3 @@
-// src/pages/MyOrders.jsx
 import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
@@ -25,18 +24,14 @@ export default function MyOrders() {
     api
       .get("/orders")
       .then((res) => {
-        // --- FIX STARTS HERE ---
-        // Handle both Array (Customer) and Object (Admin) responses
         let orderData = [];
         if (Array.isArray(res.data)) {
           orderData = res.data;
         } else if (res.data && Array.isArray(res.data.orders)) {
           orderData = res.data.orders;
         }
-        
         setOrders(orderData);
         setFilteredOrders(orderData);
-        // --- FIX ENDS HERE ---
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -56,13 +51,6 @@ export default function MyOrders() {
     }
     setFilteredOrders(res);
   }, [statusFilter, search, orders]);
-
-  if (loading)
-    return (
-      <div className="flex justify-center p-20">
-        <div className="loader"></div>
-      </div>
-    );
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-6 min-h-screen">
@@ -101,7 +89,21 @@ export default function MyOrders() {
         </div>
       </div>
 
-      {filteredOrders.length === 0 ? (
+      {loading ? (
+        // --- ORDERS SKELETON ---
+        <div className="space-y-6 animate-pulse">
+           {[1, 2, 3].map(i => (
+             <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-40 flex flex-col justify-between">
+                <div className="flex justify-between">
+                   <div className="h-5 w-1/3 bg-slate-200 rounded"></div>
+                   <div className="h-5 w-20 bg-slate-200 rounded-full"></div>
+                </div>
+                <div className="h-4 w-1/2 bg-slate-200 rounded"></div>
+                <div className="h-12 w-full bg-slate-100 rounded-xl mt-2"></div>
+             </div>
+           ))}
+        </div>
+      ) : filteredOrders.length === 0 ? (
         <div className="text-center py-24 bg-white/60 rounded-3xl border border-dashed border-slate-300">
           <p className="text-slate-500 text-lg font-medium">No orders found.</p>
           <button

@@ -8,7 +8,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
-  const [cancelling, setCancelling] = useState(false); // New State
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => { fetchOrder(); }, [id]);
 
@@ -40,7 +40,6 @@ export default function OrderDetail() {
     }
   }
 
-  // --- NEW: Cancel Handler ---
   async function handleCancel() {
     if(!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
     
@@ -48,16 +47,26 @@ export default function OrderDetail() {
     try {
       await api.put(`/orders/${id}/cancel`);
       toast.success('Order cancelled successfully');
-      fetchOrder(); // Refresh data
+      fetchOrder();
     } catch (err) {
       toast.error(err.response?.data?.msg || 'Failed to cancel');
     } finally {
       setCancelling(false);
     }
   }
-  // ---------------------------
 
-  if (loading) return <div className="flex justify-center p-20"><div className="loader"></div></div>;
+  if (loading) return (
+    // --- ORDER DETAIL SKELETON ---
+    <div className="max-w-5xl mx-auto px-6 py-10 animate-pulse">
+        <div className="h-6 w-32 bg-slate-200 rounded mb-6"></div>
+        <div className="bg-white rounded-2xl border border-slate-200 h-64 mb-8"></div>
+        <div className="grid md:grid-cols-3 gap-12">
+            <div className="md:col-span-2 h-96 bg-slate-100 rounded-2xl"></div>
+            <div className="h-96 bg-slate-100 rounded-2xl"></div>
+        </div>
+    </div>
+  );
+
   if (!order) return <div className="text-center p-20 text-slate-500">Order not found</div>;
 
   const steps = ['pending', 'processing', 'shipped', 'delivered'];
@@ -85,7 +94,6 @@ export default function OrderDetail() {
             </div>
             
             <div className="flex gap-2">
-                {/* NEW: Cancel Button (Only if Pending) */}
                 {order.status === 'pending' && (
                     <button 
                         onClick={handleCancel}

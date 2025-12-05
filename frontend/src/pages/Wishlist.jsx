@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import BookCard from '../components/BookCard';
+import SkeletonBookCard from '../components/SkeletonBookCard'; // <--- Import Skeleton
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -15,8 +16,6 @@ export default function Wishlist() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex justify-center p-32"><div className="loader"></div></div>;
-
   return (
     <div className="max-w-7xl mx-auto py-12 px-6 min-h-screen">
       <div className="mb-10">
@@ -24,7 +23,14 @@ export default function Wishlist() {
         <p className="text-slate-500 mt-2 font-medium">Books you've saved for later.</p>
       </div>
 
-      {books.length === 0 ? (
+      {loading ? (
+        // --- SKELETON LOADING GRID ---
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+           {[...Array(4)].map((_, i) => (
+             <SkeletonBookCard key={i} />
+           ))}
+        </div>
+      ) : books.length === 0 ? (
         <motion.div 
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center py-24 bg-white/50 border border-dashed border-slate-300 rounded-3xl"
