@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom'; // <--- Import Link
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -34,7 +34,6 @@ export default function ChatWidget() {
     if (!input.trim()) return;
 
     const userMsg = input;
-    // Update UI immediately
     const newHistory = [...messages, { role: 'user', text: userMsg }];
     setMessages(newHistory);
     setInput('');
@@ -44,9 +43,6 @@ export default function ChatWidget() {
       const res = await api.post('/ai/chat', {
         message: userMsg,
         context: getContext(),
-        // Send history excluding the last message we just added (redundant) 
-        // OR better: Send the previous history so backend can append the new one.
-        // Actually, Gemini 'startChat' needs history *before* the current message.
         history: messages 
       });
       
@@ -92,8 +88,22 @@ export default function ChatWidget() {
                         className="markdown-content"
                         components={{
                           ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          // Only style strong tags if they are NOT inside a link (to avoid double styling)
                           strong: ({node, ...props}) => <span className="font-bold text-indigo-700" {...props} />,
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />
+                          // Custom Link Renderer
+                          a: ({node, href, children, ...props}) => {
+                            return (
+                              <Link 
+                                to={href} 
+                                onClick={() => setIsOpen(false)} // Optional: close chat on navigate
+                                className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 hover:underline cursor-pointer decoration-indigo-500" 
+                                {...props}
+                              >
+                                {children}
+                              </Link>
+                            );
+                          }
                         }}
                       >
                         {m.text}
