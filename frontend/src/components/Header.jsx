@@ -25,7 +25,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 glass transition-all bg-white/80 backdrop-blur-md border-b border-slate-200/50">
       {/* CHANGE 1: Reduced padding from py-3 to py-1 to make header thinner */}
-      <div className="container mx-auto px-4 md:px-6 py-1">
+      <div className="container mx-auto px-4 md:px-6 py-2">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
