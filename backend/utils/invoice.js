@@ -3,22 +3,23 @@ const PDFDocument = require('pdfkit');
 
 function buildInvoice(doc, order) {
   // --- HEADER ---
-  doc
-    .fillColor('#1e293b')
-    .fontSize(24)
-    .font('Helvetica-Bold')
-    try {
-    doc.image(__dirname + '/../assets/logo.png', 50, 45, { width: 50 }); // Adjust width/position as needed
+  const logoPath = path.join(__dirname, '../assets/logo.png');
+  try {
+      doc.image(logoPath, 50, 45, { width: 50 });
   } catch (err) {
-    // Fallback if image is missing
-    doc.fontSize(24).text('Readify', 50, 50);
+      doc
+        .fillColor('#1e293b')
+        .fontSize(24)
+        .font('Helvetica-Bold')
+        .text('Readify', 50, 50);
   }
   doc
+    .fillColor('#1e293b')
     .fontSize(10)
     .font('Helvetica')
-    .text('123 Bookstore Lane', 50, 80)
-    .text('Knowledge City, 560001', 50, 95)
-    .text('bsms.bookshop.official@gmail.com', 50, 110);
+    .text('123 Knowledge Avenue', 50, 100)
+    .text('Tech District, 560001', 50, 115)
+    .text('bsms.bookshop.official@gmail.com', 50, 130);
 
   doc
     .fillColor('#444444')
