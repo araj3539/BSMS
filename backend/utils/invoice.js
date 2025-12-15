@@ -7,12 +7,18 @@ function buildInvoice(doc, order) {
     .fillColor('#1e293b')
     .fontSize(24)
     .font('Helvetica-Bold')
-    .text('BookShop.', 50, 50)
+    try {
+    doc.image(__dirname + '/../assets/logo.png', 50, 45, { width: 50 }); // Adjust width/position as needed
+  } catch (err) {
+    // Fallback if image is missing
+    doc.fontSize(24).text('Readify', 50, 50);
+  }
+  doc
     .fontSize(10)
     .font('Helvetica')
     .text('123 Bookstore Lane', 50, 80)
     .text('Knowledge City, 560001', 50, 95)
-    .text('support@bookshop.local', 50, 110);
+    .text('bsms.bookshop.official@gmail.com', 50, 110);
 
   doc
     .fillColor('#444444')

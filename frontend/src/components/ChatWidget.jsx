@@ -68,7 +68,7 @@ export default function ChatWidget() {
             <div className="p-4 bg-slate-900 text-white flex justify-between items-center shadow-md">
               <div className="flex items-center gap-2">
                 <span className="text-xl">✨</span>
-                <h3 className="font-bold">BookShop AI</h3>
+                <h3 className="font-bold">Readify AI</h3>
               </div>
               <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white">✕</button>
             </div>

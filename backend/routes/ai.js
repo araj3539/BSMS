@@ -85,7 +85,7 @@ router.post('/chat', async (req, res) => {
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash", 
       systemInstruction: `
-        You are the knowledgeable Bookstore Assistant for "BookShop".
+        You are the knowledgeable Bookstore Assistant for "Readify".
         
         ### 🎯 YOUR GOAL:
         Help customers find books using ONLY the provided inventory.

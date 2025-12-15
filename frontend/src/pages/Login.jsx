@@ -44,7 +44,7 @@ export default function Login() {
       >
         <div className="text-center mb-8">
           <Link to="/" className="inline-block mb-4 group">
-            <span className="text-3xl font-serif font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors">BookShop.</span>
+            <span className="text-3xl font-serif font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors"><img src="/logo.png" alt="Logo" className="h-12 mx-auto mb-6" /></span>
           </Link>
           <h2 className="text-3xl font-bold text-white tracking-tight">Welcome back</h2>
           <p className="mt-2 text-sm text-slate-400">
