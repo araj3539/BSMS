@@ -28,12 +28,14 @@ export default function Header() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group relative z-50">
-            <img
-              src="/logo.png"
-              alt="Readify Logo"
-              className="h-20 md:h-28 w-auto object-contain -my-4 md:-my-6 drop-shadow-md transition-transform duration-300 group-hover:scale-110"
-            />
-          </Link>
+          <img 
+            src="/logo.png" 
+            alt="Readify" 
+            // h-24: Makes the logo nice and big (96px)
+            // -my-8: The Trick! Pulls the margins in so the header stays thin
+            className="h-24 w-auto object-contain -my-8 drop-shadow-lg transition-transform duration-300 group-hover:scale-105" 
+          />
+        </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2">
