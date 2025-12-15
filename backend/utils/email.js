@@ -160,18 +160,19 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
     // (This must be the email you used to create your Brevo account)
     const SENDER_EMAIL = "bsms.bookshop.official@gmail.com";
 
-    const logoAttachment = {
-        filename: 'logo.png',
-        path: path.join(__dirname, '../assets/logo.png'), // Ensure this file exists
-        cid: 'brand-logo' // Referenced in HTML as src="cid:brand-logo"
-    };
-
     const info = await transport.sendMail({
       from: `"Readify" <${SENDER_EMAIL}>`, // <--- CHANGED THIS
       to,
       subject,
       html,
-      attachments: [...attachments, logoAttachment],
+      attachments: [
+        ...attachments, // Keep existing attachments (like invoices)
+        {
+          filename: "logo.png",
+          path: __dirname + "/../assets/logo.png", // Path to your backend logo
+          cid: "brand-logo", // Unique ID to reference in HTML
+        },
+      ],
     });
     console.log("📧 Message sent: %s", info.messageId);
     return info;

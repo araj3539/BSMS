@@ -7,12 +7,12 @@ export default function Footer() {
       <div className="container mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         {/* Brand Section */}
         <div className="space-y-4">
-          <Link to="/" className="inline-block">
-             <img 
-               src="/logo.png" 
-               alt="Readify" 
-               className="h-12 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity" 
-             />
+          <Link to="/" className="inline-block mb-4">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="h-12 w-auto opacity-90"
+            />
           </Link>
           <p className="text-sm leading-relaxed text-slate-400">
             Your destination for curated bestsellers, timeless classics, and
