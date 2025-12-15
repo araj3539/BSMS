@@ -31,7 +31,7 @@ export default function Header() {
             <img
               src="/logo.png"
               alt="Readify Logo"
-              className="h-29 md:h-35 w-auto object-contain -my-4 md:-my-6 drop-shadow-md transition-transform duration-300 group-hover:scale-110"
+              className="h-20 md:h-28 w-auto object-contain -my-4 md:-my-6 drop-shadow-md transition-transform duration-300 group-hover:scale-110"
             />
           </Link>
 
