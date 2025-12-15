@@ -27,11 +27,11 @@ export default function Header() {
       <div className="container mx-auto px-4 md:px-6 py-3">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group relative z-50">
             <img
               src="/logo.png"
               alt="Readify Logo"
-              className="h-20 md:h-28 w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-110"
+              className="h-20 md:h-28 w-auto object-contain -my-4 md:-my-6 drop-shadow-md transition-transform duration-300 group-hover:scale-110"
             />
           </Link>
 
