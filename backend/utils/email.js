@@ -52,7 +52,7 @@ function getEmailTemplate({ title, message, orderId, items, subtotal, discount, 
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
       
       <div style="background-color: #1e293b; padding: 24px; text-align: center;">
-        <img src="cid:brand-logo" alt="Readify" style="height: 50px; width: auto; display: block; margin: 0 auto;" />
+        <img src="cid:brand-logo" alt="Readify" style="height: 70px; width: auto; display: block; margin: 0 auto;" />
       </div>
 
       <div style="padding: 24px; background-color: #ffffff;">

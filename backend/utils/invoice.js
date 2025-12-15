@@ -8,7 +8,7 @@ function buildInvoice(doc, order) {
   
   // Try to render logo, fallback to text if missing
   try {
-      doc.image(logoPath, 50, 45, { width: 60 });
+      doc.image(logoPath, 50, 45, { width: 100 });
   } catch (err) {
       doc
         .fillColor('#1e293b')
