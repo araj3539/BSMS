@@ -31,9 +31,9 @@ export default function Header() {
           <img 
             src="/logo.png" 
             alt="Readify" 
-            // h-24: Makes the logo nice and big (96px)
-            // -my-8: The Trick! Pulls the margins in so the header stays thin
-            className="h-30 w-auto object-contain -my-8 drop-shadow-lg transition-transform duration-300 group-hover:scale-105" 
+            // h-32 / h-48: Makes the logo HUGE (128px mobile / 192px desktop)
+            // -my-10 / -my-16: Pulls the layout bounds in tightly so the header stays thin
+            className="h-32 md:h-48 w-auto object-contain -my-10 md:-my-16 drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
           />
         </Link>
 
