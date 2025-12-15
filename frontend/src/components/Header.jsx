@@ -30,14 +30,14 @@ export default function Header() {
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group relative z-50">
-            <img 
-              src="/logo.png" 
-              alt="Readify Logo" 
-              // CHANGE 2: Increased negative margin (-my-12 / -my-20) 
-              // This allows the logo to be huge without stretching the header height
-              className="h-32 md:h-48 w-auto object-contain -my-12 md:-my-20 drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
-            />
-          </Link>
+          <img 
+            src="/logo.png" 
+            alt="Readify" 
+            // h-32 / h-48: Makes the logo HUGE (128px mobile / 192px desktop)
+            // -my-10 / -my-16: Pulls the layout bounds in tightly so the header stays thin
+            className="h-32 md:h-48 w-auto object-contain -my-10 md:-my-16 drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
+          />
+        </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2">
