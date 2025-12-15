@@ -30,8 +30,8 @@ export default function Header() {
           <Link to="/" className="flex items-center gap-2 group">
             <img
               src="/logo.png"
-              alt="Logo"
-              className="h-10 w-auto object-contain group-hover:scale-105 transition-transform"
+              alt="Readify Logo"
+              className="h-20 md:h-28 w-auto object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-110"
             />
           </Link>
 
