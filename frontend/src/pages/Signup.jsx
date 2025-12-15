@@ -51,9 +51,15 @@ export default function Signup() {
         className="max-w-md w-full relative z-10"
       >
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block mb-4 group">
-            <span className="text-3xl font-serif font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors">BookShop.</span>
+          {/* --- UPDATED LOGO --- */}
+          <Link to="/" className="inline-block mb-6 group">
+            <img 
+              src="/logo.png" 
+              alt="Readify" 
+              className="h-24 w-auto object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-105" 
+            />
           </Link>
+
           <h2 className="text-3xl font-bold text-white tracking-tight">Create your account</h2>
           <p className="mt-2 text-sm text-slate-400">
             Join our community of book lovers today.

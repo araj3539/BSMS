@@ -43,9 +43,15 @@ export default function Login() {
         className="max-w-md w-full relative z-10"
       >
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block mb-4 group">
-            <span className="text-3xl font-serif font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors"><img src="/logo.png" alt="Logo" className="h-12 mx-auto mb-6" /></span>
+          {/* --- UPDATED LOGO --- */}
+          <Link to="/" className="inline-block mb-6 group">
+            <img 
+              src="/logo.png" 
+              alt="Readify" 
+              className="h-24 w-auto object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-105" 
+            />
           </Link>
+          
           <h2 className="text-3xl font-bold text-white tracking-tight">Welcome back</h2>
           <p className="mt-2 text-sm text-slate-400">
             Sign in to access your library and wishlist.
