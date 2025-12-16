@@ -63,10 +63,10 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out border-b border-slate-200/50
         ${isVisible ? "translate-y-0" : "-translate-y-full"} 
-        ${isScrolled ? "bg-white/95 backdrop-blur-md shadow-md py-2" : "bg-white/80 backdrop-blur-sm py-4"}
+        ${isScrolled ? "bg-white/95 backdrop-blur-md shadow-md pt-2 pb-1" : "bg-white/80 backdrop-blur-sm pt-4 pb-2"}
       `}
     >
-      <div className="container mx-auto px-4 md:px-6 pt-2 pb-0">
+      <div className="container mx-auto px-4 md:px-6">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
