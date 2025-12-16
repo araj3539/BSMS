@@ -18,14 +18,16 @@ function buildInvoice(doc, order) {
   }
 
   // Company Details
+  // UPDATED: Shifted Y-coordinates down to avoid overlapping the logo (assuming logo h ~100px)
   doc
     .fillColor('#1e293b')
     .fontSize(10)
     .font('Helvetica')
-    .text('123 Knowledge Avenue', 50, 110)
-    .text('Tech District, 560001', 50, 125)
-    .text('bsms.bookshop.official@gmail.com', 50, 140);
+    .text('123 Knowledge Avenue', 50, 160) // Changed from 110 to 160
+    .text('Tech District, 560001', 50, 175)  // Changed from 125 to 175
+    .text('bsms.bookshop.official@gmail.com', 50, 190); // Changed from 140 to 190
 
+  // Invoice Details (Right Side) - Kept mostly same but ensured spacing
   doc
     .fillColor('#444444')
     .fontSize(20)
@@ -37,25 +39,28 @@ function buildInvoice(doc, order) {
 
   // --- LINE SEPARATOR ---
   doc.moveDown();
-  doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(50, 160).lineTo(550, 160).stroke();
+  // UPDATED: Moved line down from 160 to 210
+  doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(50, 210).lineTo(550, 210).stroke();
 
   // --- BILL TO / SHIP TO ---
   doc
     .moveDown()
     .fillColor('#000000')
     .font('Helvetica-Bold')
-    .text('Bill To:', 50, 180)
+    // UPDATED: Moved text down from 180 to 230
+    .text('Bill To:', 50, 230)
     .font('Helvetica')
-    .text(order.userIdName, 50, 195)
-    .text(order.userEmail, 50, 210)
+    .text(order.userIdName, 50, 245)
+    .text(order.userEmail, 50, 260)
     
     .font('Helvetica-Bold')
-    .text('Ship To:', 300, 180)
+    .text('Ship To:', 300, 230)
     .font('Helvetica')
-    .text(order.shippingAddress, 300, 195, { width: 250 });
+    .text(order.shippingAddress, 300, 245, { width: 250 });
 
   // --- TABLE HEADER ---
-  const tableTop = 280;
+  // UPDATED: Moved table start down from 280 to 330
+  const tableTop = 330;
   doc.font('Helvetica-Bold');
   generateTableRow(doc, tableTop, 'Item', 'Qty', 'Unit Price', 'Total');
   doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(50, tableTop + 20).lineTo(550, tableTop + 20).stroke();

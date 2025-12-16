@@ -11,7 +11,7 @@ export default function Footer() {
              <img 
                src="/logo.png" 
                alt="Readify" 
-               className="h-20 w-auto object-contain opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300" 
+               className="h-28 w-auto object-contain opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300" 
              />
           </Link>
           <p className="text-sm leading-relaxed text-slate-400">

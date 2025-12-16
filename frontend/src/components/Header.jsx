@@ -24,20 +24,20 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 glass transition-all bg-white/80 backdrop-blur-md border-b border-slate-200/50">
-      {/* CHANGE 1: Reduced padding from py-3 to py-1 to make header thinner */}
       <div className="container mx-auto px-4 md:px-6 py-2">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group relative z-50">
-          <img 
-            src="/logo.png" 
-            alt="Readify" 
-            // h-32 / h-48: Makes the logo HUGE (128px mobile / 192px desktop)
-            // -my-10 / -my-16: Pulls the layout bounds in tightly so the header stays thin
-            className="h-32 md:h-48 w-auto object-contain -my-10 md:-my-16 drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
-          />
-        </Link>
+            <img 
+              src="/logo.png" 
+              alt="Readify" 
+              // UPDATED: Removed -my-10 and -my-16 negative margins.
+              // Kept h-32/h-48 as requested to maintain size.
+              // The header height will now increase to fit this image.
+              className="h-32 md:h-48 w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
+            />
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-2">
