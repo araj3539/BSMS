@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,43 @@ export default function Header() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- SMART SCROLL STATES ---
+  const [isVisible, setIsVisible] = useState(true); // Show/Hide header
+  const [isScrolled, setIsScrolled] = useState(false); // Detect if page is scrolled
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const controlHeader = () => {
+      const currentScrollY = window.scrollY;
+
+      // 1. Logic to Hide/Show Header based on scroll direction
+      if (currentScrollY > 100) {
+        if (currentScrollY > lastScrollY) {
+          // Scrolling DOWN -> Hide Header
+          setIsVisible(false);
+        } else {
+          // Scrolling UP -> Show Header
+          setIsVisible(true);
+        }
+      } else {
+        // At the top -> Always Show
+        setIsVisible(true);
+      }
+
+      // 2. Logic to Shrink Header when not at absolute top
+      if (currentScrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", controlHeader);
+    return () => window.removeEventListener("scroll", controlHeader);
+  }, [lastScrollY]);
 
   function handleLogout() {
     logout();
@@ -23,8 +60,13 @@ export default function Header() {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 glass transition-all bg-white/80 backdrop-blur-md border-b border-slate-200/50">
-      <div className="container mx-auto px-4 md:px-6 py-2">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out border-b border-slate-200/50
+        ${isVisible ? "translate-y-0" : "-translate-y-full"} 
+        ${isScrolled ? "bg-white/95 backdrop-blur-md shadow-md py-2" : "bg-white/80 backdrop-blur-sm py-4"}
+      `}
+    >
+      <div className="container mx-auto px-4 md:px-6">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
@@ -32,10 +74,10 @@ export default function Header() {
             <img 
               src="/logo.png" 
               alt="Readify" 
-              // UPDATED: Removed -my-10 and -my-16 negative margins.
-              // Kept h-32/h-48 as requested to maintain size.
-              // The header height will now increase to fit this image.
-              className="h-32 md:h-48 w-auto object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-105" 
+              // LOGIC: Large (h-24/h-32) at top, Compact (h-12) when sticky
+              className={`w-auto object-contain transition-all duration-300 group-hover:scale-105 
+                ${isScrolled ? "h-12" : "h-24 md:h-32"}
+              `} 
             />
           </Link>
 
