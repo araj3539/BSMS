@@ -66,7 +66,7 @@ export default function Header() {
         ${isScrolled ? "bg-white/95 backdrop-blur-md shadow-md py-2" : "bg-white/80 backdrop-blur-sm py-4"}
       `}
     >
-      <div className="container mx-auto px-4 md:px-6">
+      <div className="container mx-auto px-4 md:px-6 pt-2 pb-0">
         <div className="flex justify-between items-center">
           
           {/* Logo */}
