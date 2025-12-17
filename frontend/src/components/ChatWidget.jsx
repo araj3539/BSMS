@@ -1,157 +1,141 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom'; // <--- Import Link
-import api from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import api from "../services/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../context/AuthContext";
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'system', text: "Hi! I'm your literary assistant. Ask me for recommendations!" }
+    { role: "model", text: "Hi! I'm your Readify AI assistant. Can I help you find a book today?" }
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  
-  const scrollRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const location = useLocation();
+  const { user } = useAuth();
 
+  // Scroll to bottom of chat
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isOpen, loading]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isOpen]);
 
-  const getContext = () => {
-    if (location.pathname.startsWith('/book/')) {
-      const title = document.querySelector('h1')?.innerText;
-      const author = document.querySelector('p.text-xl')?.innerText?.replace('by ', '');
-      if (title) return { title, author };
-    }
-    return null;
-  };
-
-  async function sendMessage(e) {
+  async function handleSend(e) {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMsg = input;
-    const newHistory = [...messages, { role: 'user', text: userMsg }];
-    setMessages(newHistory);
-    setInput('');
+    const userMsg = { role: "user", text: input };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
     setLoading(true);
 
     try {
-      const res = await api.post('/ai/chat', {
-        message: userMsg,
-        context: getContext(),
-        history: messages 
+      // Send context about the current page (e.g., if viewing a book)
+      const context = {
+        page: location.pathname,
+        user: user ? user.name : "Guest"
+      };
+
+      const res = await api.post("/ai/chat", {
+        message: userMsg.text,
+        history: messages.map(m => ({ role: m.role, text: m.text })),
+        context
       });
-      
-      setMessages(prev => [...prev, { role: 'system', text: res.data.reply }]);
+
+      setMessages((prev) => [...prev, { role: "model", text: res.data.reply }]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'system', text: "Connection error. Please try again." }]);
+      setMessages((prev) => [...prev, { role: "model", text: "I'm having trouble connecting right now. Please try again later." }]);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
+    // FIX: z-[100] ensures it sits above the Header (z-50) and everything else
+    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4">
+      
+      {/* CHAT WINDOW */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 w-[350px] md:w-[400px] h-[500px] bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-white w-[90vw] md:w-96 h-[500px] max-h-[80vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="p-4 bg-slate-900 text-white flex justify-between items-center shadow-md">
+            <div className="bg-indigo-600 p-4 flex justify-between items-center text-white">
               <div className="flex items-center gap-2">
-                <span className="text-xl">✨</span>
-                <h3 className="font-bold">Readify AI</h3>
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                <h3 className="font-bold text-sm">Readify AI</h3>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white">✕</button>
+              <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
 
-            {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50" ref={scrollRef}>
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                    m.role === 'user' 
-                    ? 'bg-indigo-600 text-white rounded-br-none' 
-                    : 'bg-white text-slate-800 rounded-bl-none border border-slate-100'
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                    msg.role === "user" 
+                      ? "bg-indigo-600 text-white rounded-br-none" 
+                      : "bg-white border border-slate-200 text-slate-700 rounded-bl-none shadow-sm"
                   }`}>
-                    {m.role === 'system' ? (
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        className="markdown-content"
-                        components={{
-                          ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1" {...props} />,
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                          // Only style strong tags if they are NOT inside a link (to avoid double styling)
-                          strong: ({node, ...props}) => <span className="font-bold text-indigo-700" {...props} />,
-                          // Custom Link Renderer
-                          a: ({node, href, children, ...props}) => {
-                            return (
-                              <Link 
-                                to={href} 
-                                onClick={() => setIsOpen(false)} // Optional: close chat on navigate
-                                className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 hover:underline cursor-pointer decoration-indigo-500" 
-                                {...props}
-                              >
-                                {children}
-                              </Link>
-                            );
-                          }
-                        }}
-                      >
-                        {m.text}
-                      </ReactMarkdown>
-                    ) : m.text}
+                    {/* Render Markdown-style links if AI sends them */}
+                    <div dangerouslySetInnerHTML={{ 
+                        __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Basic bold support
+                                        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="underline text-blue-300 hover:text-blue-100">$1</a>') // Basic link support
+                    }} />
                   </div>
                 </div>
               ))}
-              
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-white p-4 rounded-2xl rounded-bl-none flex gap-1.5 border border-slate-100 shadow-sm items-center h-10">
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-100"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-200"></div>
-                  </div>
+                   <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-bl-none shadow-sm flex gap-1">
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div>
+                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
-            <form onSubmit={sendMessage} className="p-3 border-t border-slate-200 bg-white">
-              <div className="relative">
-                <input 
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  placeholder="Ask for a book..." 
-                  className="w-full bg-slate-100 border-none rounded-full pl-4 pr-12 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
-                <button 
-                  disabled={loading || !input.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
-                >
-                  ➤
-                </button>
-              </div>
+            <form onSubmit={handleSend} className="p-3 bg-white border-t border-slate-100 flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask for a book recommendation..."
+                className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+              <button 
+                type="submit" 
+                disabled={!input.trim() || loading}
+                className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
             </form>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* TOGGLE BUTTON (FAB) */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-slate-900 text-white rounded-full shadow-xl flex items-center justify-center text-2xl hover:bg-indigo-600 transition-colors"
+        className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg hover:shadow-indigo-500/50 flex items-center justify-center transition-all"
       >
-        {isOpen ? '✕' : '✨'}
+        {isOpen ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        )}
       </motion.button>
     </div>
   );
