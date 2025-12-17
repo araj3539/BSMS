@@ -12,6 +12,7 @@ import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import ScrollToTop from "./components/ScrollToTop";
+import ChatWidget from "./components/ChatWidget";
 
 // Pages
 import Home from "./pages/Home";
@@ -81,7 +82,7 @@ function App() {
               </Route>
             </Routes>
           </main>
-
+          <ChatWidget />
           <Footer />
           <Toaster position="bottom-right" />
         </div>
