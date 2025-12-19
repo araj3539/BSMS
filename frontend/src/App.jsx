@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 // Contexts
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import Users from './pages/Users';
 
 // Components
 import Header from "./components/Header";
@@ -44,7 +45,7 @@ function App() {
         <div className="flex flex-col min-h-screen bg-slate-50 transition-colors duration-300">
           <ScrollToTop />
           <Header />
-          
+
           {/* FIX APPLIED HERE:
             - pt-36 (144px): Clears the header on Mobile (Logo h-24 + padding)
             - md:pt-48 (192px): Clears the header on Desktop (Logo h-32 + padding)
@@ -59,7 +60,10 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/book/:id" element={<BookDetail />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route
+                path="/reset-password/:token"
+                element={<ResetPassword />}
+              />
 
               {/* Protected Customer Routes */}
               <Route element={<ProtectedRoute />}>
@@ -79,6 +83,7 @@ function App() {
                 <Route path="/admin/promotions" element={<AdminPromotions />} />
                 <Route path="/admin/logs" element={<AdminAuditLogs />} />
                 <Route path="/admin/reports" element={<Reports />} />
+                <Route path="/admin/users" element={<Users />} />
               </Route>
             </Routes>
           </main>

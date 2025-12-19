@@ -76,6 +76,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/orders', orderRoutes); 
 app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/ai', require('./routes/ai'));
 
