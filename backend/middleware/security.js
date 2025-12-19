@@ -20,6 +20,11 @@ const authLimiter = rateLimit({
         }
         return req.ip;
     },
+
+    validate: {
+        ip: false,
+        trustProxy: false
+    },
     // ------------------------
     
     handler: (req, res, next, options) => {
