@@ -4,15 +4,31 @@ const rateLimit = require("express-rate-limit");
 
 // --- AUTH RATE LIMITER ---
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login/signup attempts per IP
-  message: {
-    msg: "Too many login attempts. Please try again after 15 minutes.",
-  },
-  standardHeaders: true, // Return RateLimit-* headers
-  legacyHeaders: false, // Disable X-RateLimit-* headers
-  // REMOVED: keyGenerator: (req) => req.ip
-  // (The default behavior uses req.ip safely and avoids the IPv6 validation error)
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 requests per window
+    standardHeaders: true, 
+    legacyHeaders: false,
+
+    // --- ADD THIS SECTION ---
+    // This forces the limiter to use the specific 'x-forwarded-for' header
+    // which contains the original Client IP, ignoring the load balancer's rotation.
+    keyGenerator: (req, res) => {
+        // If x-forwarded-for exists, split it by comma and take the first one (the real client).
+        // If not, fall back to req.ip.
+        if (req.headers['x-forwarded-for']) {
+            return req.headers['x-forwarded-for'].split(',')[0];
+        }
+        return req.ip;
+    },
+    // ------------------------
+    
+    handler: (req, res, next, options) => {
+        // Your custom error handler (if you have one)
+        res.status(options.statusCode).json({
+            success: false,
+            message: "Too many login attempts. Please try again after 15 minutes."
+        });
+    }
 });
 
 // --- HELPER: Reset Limit for a Request ---
