@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -14,6 +14,9 @@ export function AuthProvider({ children }) {
   });
 
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+  
+  // Ref to prevent double-fetching in React Strict Mode (Development)
+  const isFetchingRef = useRef(false);
 
   // Login function
   const login = async (newToken, userData) => {
@@ -32,7 +35,7 @@ export function AuthProvider({ children }) {
     guestCart.forEach(guestItem => {
       const existingIndex = finalCart.findIndex(i => i.bookId === guestItem.bookId);
       if (existingIndex > -1) {
-        // If item exists, update qty (or you could sum them: finalCart[existingIndex].qty += guestItem.qty)
+        // If item exists, update qty (or you could sum them)
         finalCart[existingIndex] = guestItem; 
       } else {
         // If new, push it
@@ -41,21 +44,17 @@ export function AuthProvider({ children }) {
     });
 
     // D. Update State & Storage
-    // Update the specific user's cart in localStorage
     localStorage.setItem(`cart_${userData._id}`, JSON.stringify(finalCart));
-    // Clear guest cart
     localStorage.removeItem('cart_guest'); 
     
     // E. Sync Merged Cart to Backend
-    // We attach the cart to the user object immediately for UI updates
     const updatedUser = { ...userData, cart: finalCart };
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
 
-    // Send the merged cart to the database
     try {
       await api.put('/auth/cart', { cart: finalCart }, {
-        headers: { Authorization: `Bearer ${newToken}` } // Manually pass token as interceptor might lag
+        headers: { Authorization: `Bearer ${newToken}` }
       });
     } catch (e) {
       console.error("Failed to sync cart on login", e);
@@ -72,36 +71,41 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     async function fetchMe() {
-      // Only fetch if we have a token
+      // 1. Guard clauses
       if (!token) return;
+      if (isFetchingRef.current) return; // Prevent double firing
+      
+      isFetchingRef.current = true;
 
       try {
-        // 1. Get fresh user data from DB
+        // 2. Get fresh user data from DB
         const res = await api.get('/auth/me'); 
         const dbUser = res.data.user;
 
-        // 2. Update Local Cart Storage
-        // This ensures Device B gets the items saved by Device A
+        // 3. Update Local Cart Storage (Device sync)
         if (dbUser.cart && dbUser.cart.length > 0) {
            const cartKey = `cart_${dbUser._id}`;
-           // We prioritize the DB cart over stale local data
            localStorage.setItem(cartKey, JSON.stringify(dbUser.cart));
         }
 
-        // 3. Update Context State
-        // This triggers the app to re-render with the new data
+        // 4. Update Context State
         setUser(dbUser);
         localStorage.setItem('user', JSON.stringify(dbUser));
         
       } catch (err) {
+        // If 401, the interceptor handles it, but we can double check here
         console.error("Failed to sync session:", err);
+      } finally {
+        // Reset flag after delay to allow future refreshes if needed, 
+        // but prevents immediate double-invocations
+        setTimeout(() => { isFetchingRef.current = false; }, 1000);
       }
     }
 
     fetchMe();
-  }, [token]); // Runs whenever token exists/changes
+  }, [token]);
 
-  // Update profile function (e.g. if name changes)
+  // Update profile function
   const updateProfile = (userData) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
