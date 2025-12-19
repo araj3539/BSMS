@@ -51,7 +51,6 @@ export default function Signup() {
         className="max-w-md w-full relative z-10"
       >
         <div className="text-center mb-8">
-          {/* --- UPDATED LOGO --- */}
           <Link to="/" className="inline-block mb-6 group">
             <img 
               src="/logo.png" 
@@ -99,7 +98,8 @@ export default function Signup() {
             </div>
 
             <div>
-              <label htmlFor="password" class="block text-xs font-bold text-indigo-200 uppercase tracking-wider mb-2">
+              {/* FIXED: class -> className */}
+              <label htmlFor="password" className="block text-xs font-bold text-indigo-200 uppercase tracking-wider mb-2">
                 Password
               </label>
               <input

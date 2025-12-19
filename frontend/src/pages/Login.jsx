@@ -43,7 +43,6 @@ export default function Login() {
         className="max-w-md w-full relative z-10"
       >
         <div className="text-center mb-8">
-          {/* --- UPDATED LOGO --- */}
           <Link to="/" className="inline-block mb-6 group">
             <img 
               src="/logo.png" 
@@ -77,10 +76,12 @@ export default function Login() {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label htmlFor="password" class="block text-xs font-bold text-indigo-200 uppercase tracking-wider">
+                {/* FIXED: class -> className */}
+                <label htmlFor="password" className="block text-xs font-bold text-indigo-200 uppercase tracking-wider">
                   Password
                 </label>
-                <Link to="/forgot-password" class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+                {/* FIXED: class -> className */}
+                <Link to="/forgot-password" className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
                   Forgot password?
                 </Link>
               </div>
