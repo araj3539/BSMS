@@ -9,16 +9,9 @@ const authLimiter = rateLimit({
     standardHeaders: true, 
     legacyHeaders: false,
 
-    // 1. FORCE the limiter to use the real 'X-Forwarded-For' IP
-    // This ignores whatever internal IP Render is using.
     keyGenerator: (req, res) => {
         if (req.headers['x-forwarded-for']) {
-            // The header looks like: "ClientIP, Proxy1, Proxy2"
-            // We split by comma and take the first one (the real user).
             const ip = req.headers['x-forwarded-for'].split(',')[0].trim();
-            
-            // DEBUG: Watch your logs to see if this IP stays constant now
-            console.log(`[RateLimit] Tracking IP: ${ip}`); 
             return ip;
         }
         return req.ip;
