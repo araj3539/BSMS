@@ -20,28 +20,6 @@ const app = express();
 // --- FIX 1: TRUST PROXY (Required for Render) ---
 app.set('trust proxy', 1);
 
-// --- 1. SECURITY HEADERS (Helmet) ---
-app.use(helmet());
-
-// --- 2. GLOBAL RATE LIMITING ---
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, 
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, 
-  legacyHeaders: false, 
-});
-app.use('/api', globalLimiter);
-
-// --- 3. AUTH RATE LIMITING (Brute Force Protection) ---
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login/signup attempts per IP
-  message: { msg: 'Too many login attempts. Please try again after 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // --- 4. GLOBAL MIDDLEWARE (CORS) - UPDATED ---
 const allowed = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
 
@@ -60,6 +38,32 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// --- 1. SECURITY HEADERS (Helmet) ---
+app.use(helmet());
+
+// --- 2. GLOBAL RATE LIMITING ---
+const limitAmount = process.env.NODE_ENV === 'production' ? 100 : 10000;
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: limitAmount, 
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, 
+  legacyHeaders: false, 
+});
+app.use('/api', globalLimiter);
+
+// --- 3. AUTH RATE LIMITING (Brute Force Protection) ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 login/signup attempts per IP
+  message: { msg: 'Too many login attempts. Please try again after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+
 
 // --- 5. BODY PARSER (With Raw Body Capture for Stripe) ---
 app.use(express.json({ 
