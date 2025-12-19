@@ -11,7 +11,6 @@ const authLimiter = rateLimit({
 
     validate: {
         xForwardedForHeader: false,
-        defaultProxyHeader: false,
         trustProxy: false,
         ip: false 
     },
