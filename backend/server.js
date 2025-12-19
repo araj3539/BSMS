@@ -20,19 +20,16 @@ const app = express();
 // --- FIX 1: TRUST PROXY (Required for Render) ---
 app.set('trust proxy', 1);
 
-// --- 4. GLOBAL MIDDLEWARE (CORS) - UPDATED ---
+// --- 4. GLOBAL MIDDLEWARE (CORS) ---
 const allowed = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
 
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowed.includes(origin)) return callback(null, true);
-    
-    // Allow Vercel previews dynamically
     if (process.env.ALLOW_VERCEL_PREVIEWS === 'true' && origin.endsWith('.vercel.app')) {
       return callback(null, true);
     }
-
     console.error('❌ CORS Blocked Origin:', origin);
     return callback(new Error('CORS policy violation: Origin not allowed'), false);
   },
@@ -46,7 +43,7 @@ app.use(helmet());
 const limitAmount = process.env.NODE_ENV === 'production' ? 100 : 10000;
 
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: limitAmount, 
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, 
@@ -54,18 +51,7 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// --- 3. AUTH RATE LIMITING (Brute Force Protection) ---
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login/signup attempts per IP
-  message: { msg: 'Too many login attempts. Please try again after 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-
-
-// --- 5. BODY PARSER (With Raw Body Capture for Stripe) ---
+// --- 5. BODY PARSER ---
 app.use(express.json({ 
   limit: '10kb',
   verify: (req, res, buf) => {
@@ -83,15 +69,14 @@ mongoose.connect(process.env.MONGO_URI, { useNewUrlParser:true, useUnifiedTopolo
   .catch(err=> console.error('Mongo err', err));
 
 // --- 8. ROUTES ---
-// Apply stricter limiter specifically to auth routes
-app.use('/api/auth', authLimiter, authRoutes); // <--- UPDATED
+// NOTE: authLimiter is NO LONGER here. It is used inside authRoutes.
+app.use('/api/auth', authRoutes); 
 
 app.use('/api/books', bookRoutes); 
 app.use('/api/orders', orderRoutes); 
 app.use('/api/promotions', require('./routes/promotions'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/reports', require('./routes/reports'));
-
 app.use('/api/ai', require('./routes/ai'));
 
 // --- 9. PING ---

@@ -1,39 +1,67 @@
-const AuditLog = require('../models/AuditLog');
+// backend/middleware/security.js
+const AuditLog = require("../models/AuditLog");
+const rateLimit = require("express-rate-limit");
+
+// --- AUTH RATE LIMITER ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 login/signup attempts per IP
+  message: {
+    msg: "Too many login attempts. Please try again after 15 minutes.",
+  },
+  standardHeaders: true, // Return RateLimit-* headers
+  legacyHeaders: false, // Disable X-RateLimit-* headers
+  // REMOVED: keyGenerator: (req) => req.ip
+  // (The default behavior uses req.ip safely and avoids the IPv6 validation error)
+});
+
+// --- HELPER: Reset Limit for a Request ---
+// usage: resetAuthLimit(req, res)
+const resetAuthLimit = (req, res, next) => {
+    // 1. Actually reset the internal counter for this IP address
+    // This effectively sets their 'used' requests back to 0.
+    if (authLimiter) {
+        authLimiter.resetKey(req.ip);
+    }
+
+    // 2. Now manually set the header to tell the client they are full again
+    // We hardcode '10' (or whatever your max is) because we just reset it.
+    res.setHeader('RateLimit-Remaining', 10); 
+    
+    // 3. Continue
+    if (next) next();
+};
 
 // --- 1. REQUIRE ADMIN (Authorization) ---
 function requireAdmin(req, res, next) {
   if (!req.user) {
-    return res.status(401).json({ msg: 'Authentication required' });
+    return res.status(401).json({ msg: "Authentication required" });
   }
-  if (req.user.role !== 'admin') {
-    // Log unauthorized access attempts
-    logAudit(req, 'UNAUTHORIZED_ACCESS_ATTEMPT', { error: 'Non-admin tried to access admin route' });
-    return res.status(403).json({ msg: 'Access denied: Admins only' });
+  if (req.user.role !== "admin") {
+    logAudit(req, "UNAUTHORIZED_ACCESS_ATTEMPT", {
+      error: "Non-admin tried to access admin route",
+    });
+    return res.status(403).json({ msg: "Access denied: Admins only" });
   }
   next();
 }
 
 // --- 2. AUDIT LOGGER (Activity Tracking) ---
-// Usage: router.post('/books', auth, requireAdmin, audit('CREATE_BOOK'), ...)
 function audit(actionName) {
   return async (req, res, next) => {
-    // We hook into the response 'finish' event to log the outcome
-    res.on('finish', async () => {
-      // Only log if the request was authenticated (we need a user)
-      // or if it was a critical failure we want to track anonymously
+    res.on("finish", async () => {
       if (req.user || res.statusCode >= 400) {
         try {
           await AuditLog.create({
             userId: req.user ? req.user.id : null,
-            userName: req.user ? req.user.name : 'Anonymous',
-            userRole: req.user ? req.user.role : 'Guest',
+            userName: req.user ? req.user.name : "Anonymous",
+            userRole: req.user ? req.user.role : "Guest",
             action: actionName || `${req.method} ${req.baseUrl}${req.path}`,
             method: req.method,
             endpoint: req.originalUrl,
-            // Be careful not to log sensitive data like passwords in req.body
-            details: sanitizeBody(req.body), 
+            details: sanitizeBody(req.body),
             ip: req.ip || req.connection.remoteAddress,
-            status: res.statusCode
+            status: res.statusCode,
           });
         } catch (err) {
           console.error("Audit Log Error:", err);
@@ -48,8 +76,8 @@ function audit(actionName) {
 function sanitizeBody(body) {
   if (!body) return {};
   const clean = { ...body };
-  if (clean.password) clean.password = '[REDACTED]';
-  if (clean.newPassword) clean.newPassword = '[REDACTED]';
+  if (clean.password) clean.password = "[REDACTED]";
+  if (clean.newPassword) clean.newPassword = "[REDACTED]";
   return clean;
 }
 
@@ -58,16 +86,18 @@ async function logAudit(req, action, details) {
   try {
     await AuditLog.create({
       userId: req.user?.id,
-      userName: req.user?.name || 'Unknown',
-      userRole: req.user?.role || 'Guest',
+      userName: req.user?.name || "Unknown",
+      userRole: req.user?.role || "Guest",
       action,
       method: req.method,
       endpoint: req.originalUrl,
       details,
       ip: req.ip,
-      status: 403
+      status: 403,
     });
-  } catch(e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+  }
 }
 
-module.exports = { requireAdmin, audit };
+module.exports = { requireAdmin, audit, authLimiter, resetAuthLimit };

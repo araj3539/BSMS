@@ -6,18 +6,16 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 const crypto = require('crypto'); 
-
-// Import the shared Email Utility
 const { sendEmail } = require('../utils/email'); 
+
+// --- IMPORT LIMITER & RESET HELPER ---
+const { authLimiter, resetAuthLimit } = require('../middleware/security');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key';
 const TOKEN_EXPIRES = '7d';
 
-// --- HELPER: Dynamic Client URL ---
-// Uses the Render environment variable if available, otherwise defaults to local
 const getClientUrl = () => process.env.CLIENT_URL || 'http://localhost:5173';
 
-// --- HELPER: Sanitize User Object ---
 function getSafeUser(user) {
   const u = user.toObject();
   delete u.password;
@@ -26,10 +24,11 @@ function getSafeUser(user) {
   return u;
 }
 
-// --- AUTH ROUTES ---
+// --- AUTH ROUTES (Strict Limiter Applied) ---
 
 // POST /api/auth/signup
 router.post('/signup',
+  authLimiter,
   body('name').trim().notEmpty(),
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
@@ -45,6 +44,9 @@ router.post('/signup',
       const user = new User({ name, email, password, role: 'customer' });
       await user.save();
 
+      // Reset Limit on Success
+      resetAuthLimit(req, res);
+
       const token = jwt.sign({ id: user._id, role: user.role, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
       
       res.json({ token, user: getSafeUser(user) });
@@ -57,6 +59,7 @@ router.post('/signup',
 
 // POST /api/auth/login
 router.post('/login',
+  authLimiter,
   body('email').isEmail(),
   body('password').notEmpty(),
   async (req, res) => {
@@ -71,6 +74,9 @@ router.post('/login',
       const ok = await user.comparePassword(password);
       if(!ok) return res.status(400).json({ msg: 'Invalid credentials' });
 
+      // Reset Limit on Success
+      resetAuthLimit(req, res);
+
       const token = jwt.sign({ id: user._id, role: user.role, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: TOKEN_EXPIRES });
       
       res.json({ token, user: getSafeUser(user) });
@@ -80,6 +86,8 @@ router.post('/login',
     }
   }
 );
+
+// --- OTHER ROUTES (Normal Auth, No Strict Limit) ---
 
 // PUT /api/auth/profile
 router.put('/profile',
@@ -109,7 +117,7 @@ router.put('/profile',
 
 // --- FORGOT PASSWORD ROUTES ---
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -120,7 +128,6 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; 
     await user.save();
 
-    // Use dynamic Client URL
     const resetUrl = `${getClientUrl()}/reset-password/${resetToken}`;
     
     await sendEmail({
@@ -141,7 +148,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     const user = await User.findOne({
@@ -163,7 +170,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// --- WISHLIST ROUTES ---
+// --- DATA ROUTES ---
 
 router.get('/wishlist', auth, async (req, res) => {
   try {
@@ -191,8 +198,6 @@ router.put('/wishlist/:id', auth, async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 });
-
-// --- ADDRESS ROUTES ---
 
 router.post('/address', auth, async (req, res) => {
   try {
@@ -224,7 +229,6 @@ router.delete('/address/:id', auth, async (req, res) => {
 });
 
 // --- GET ME (SESSION REFRESH) ---
-
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
