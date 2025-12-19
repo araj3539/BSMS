@@ -25,7 +25,7 @@ export default function Users() {
 
   const handleRoleUpdate = async (id, currentRole, name) => {
     // Toggle the role
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const newRole = currentRole === 'admin' ? 'customer' : 'admin';
     
     if (!window.confirm(`Are you sure you want to change ${name}'s role to ${newRole.toUpperCase()}?`)) return;
 
