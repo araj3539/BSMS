@@ -92,7 +92,7 @@ export default function Reports() {
             <span className="w-2 h-6 bg-indigo-500 rounded-full"></span>
             Revenue Trend
         </h4>
-        <div style={{ width: "100%", height: 350 }}>
+        <div style={{ width: "100%", height: 350, minWidth: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
@@ -133,7 +133,7 @@ export default function Reports() {
              <span className="w-2 h-6 bg-emerald-500 rounded-full"></span>
              Sales by Category
           </h4>
-          <div className="flex-1 w-full min-h-0">
+          <div className="flex-1 w-full min-h-0 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                 <Pie

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from "../utils/api"; // Your axios instance
+import api from "../services/api";
 import { toast } from 'react-hot-toast'; // Or your toast library
 
 export default function Users() {

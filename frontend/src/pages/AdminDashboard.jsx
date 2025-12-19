@@ -85,7 +85,7 @@ export default function AdminDashboard(){
               </div>
               
               {/* Enforce strict height to fix Recharts width(-1) error */}
-              <div style={{ width: '100%', height: '350px' }}> 
+              <div style={{ width: '100%', height: '350px', minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
