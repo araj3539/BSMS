@@ -9,8 +9,12 @@ const authLimiter = rateLimit({
     standardHeaders: true, 
     legacyHeaders: false,
 
-    // REMOVED: keyGenerator (This was causing the crash)
-    // REMOVED: validate (Not needed if we don't use keyGenerator)
+    validate: {
+        xForwardedForHeader: false,
+        defaultProxyHeader: false,
+        trustProxy: false,
+        ip: false 
+    },
 
     // Keep the custom handler so you get JSON errors
     handler: (req, res, next, options) => {
