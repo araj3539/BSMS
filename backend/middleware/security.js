@@ -5,17 +5,33 @@ const rateLimit = require("express-rate-limit");
 // --- AUTH RATE LIMITER ---
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, 
+    max: 10,
     standardHeaders: true, 
     legacyHeaders: false,
 
-    validate: {
-        xForwardedForHeader: false,
-        trustProxy: false,
-        ip: false 
+    // 1. FORCE the limiter to use the real 'X-Forwarded-For' IP
+    // This ignores whatever internal IP Render is using.
+    keyGenerator: (req, res) => {
+        if (req.headers['x-forwarded-for']) {
+            // The header looks like: "ClientIP, Proxy1, Proxy2"
+            // We split by comma and take the first one (the real user).
+            const ip = req.headers['x-forwarded-for'].split(',')[0].trim();
+            
+            // DEBUG: Watch your logs to see if this IP stays constant now
+            console.log(`[RateLimit] Tracking IP: ${ip}`); 
+            return ip;
+        }
+        return req.ip;
     },
 
-    // Keep the custom handler so you get JSON errors
+    // 2. DISABLE the safety checks that caused the crash last time
+    validate: {
+        ip: false,             // Allow custom IPs (fixes "IPv6" error)
+        trustProxy: false,     // Allow custom proxy handling (fixes "Trust Proxy" error)
+        xForwardedForHeader: false
+    },
+
+    // 3. Custom Error Message
     handler: (req, res, next, options) => {
         res.status(options.statusCode).json({
             success: false,
