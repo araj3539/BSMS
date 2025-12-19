@@ -21,7 +21,23 @@ export default function Login() {
       toast.success('Welcome back!');
       nav('/'); 
     } catch (err) {
-      toast.error(err.response?.data?.msg || 'Invalid credentials');
+      // 1. Get the status code
+      const status = err.response?.status;
+      
+      // 2. Get the specific message sent by the server
+      // Note: We changed '.msg' to '.message' to match your backend
+      const serverMessage = err.response?.data?.message;
+
+      if (status === 429) {
+        // Specific handling for Rate Limit
+        toast.error(serverMessage || "Too many attempts. Please try again later.");
+      } else if (serverMessage) {
+        // If the server sent a specific error message (like "User not found"), show it
+        toast.error(serverMessage);
+      } else {
+        // Default fallback for generic errors
+        toast.error('Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }
