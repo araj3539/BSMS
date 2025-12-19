@@ -18,7 +18,7 @@ const orderRoutes = require('./routes/orders');
 const app = express();
 
 // --- FIX 1: TRUST PROXY (Required for Render) ---
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // --- 4. GLOBAL MIDDLEWARE (CORS) ---
 const allowed = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());

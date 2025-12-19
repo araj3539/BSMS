@@ -5,33 +5,18 @@ const rateLimit = require("express-rate-limit");
 // --- AUTH RATE LIMITER ---
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 requests per window
+    max: 10, 
     standardHeaders: true, 
     legacyHeaders: false,
 
-    // --- ADD THIS SECTION ---
-    // This forces the limiter to use the specific 'x-forwarded-for' header
-    // which contains the original Client IP, ignoring the load balancer's rotation.
-    keyGenerator: (req, res) => {
-        // If x-forwarded-for exists, split it by comma and take the first one (the real client).
-        // If not, fall back to req.ip.
-        if (req.headers['x-forwarded-for']) {
-            return req.headers['x-forwarded-for'].split(',')[0];
-        }
-        return req.ip;
-    },
+    // REMOVED: keyGenerator (This was causing the crash)
+    // REMOVED: validate (Not needed if we don't use keyGenerator)
 
-    validate: {
-        ip: false,
-        trustProxy: false
-    },
-    // ------------------------
-    
+    // Keep the custom handler so you get JSON errors
     handler: (req, res, next, options) => {
-        // Your custom error handler (if you have one)
         res.status(options.statusCode).json({
             success: false,
-            message: "Too many login attempts. Please try again after 15 minutes."
+            message: "Too many login attempts. Please try again after 15 minutes." 
         });
     }
 });
@@ -39,18 +24,18 @@ const authLimiter = rateLimit({
 // --- HELPER: Reset Limit for a Request ---
 // usage: resetAuthLimit(req, res)
 const resetAuthLimit = (req, res, next) => {
-    // 1. Actually reset the internal counter for this IP address
-    // This effectively sets their 'used' requests back to 0.
-    if (authLimiter) {
-        authLimiter.resetKey(req.ip);
-    }
+  // 1. Actually reset the internal counter for this IP address
+  // This effectively sets their 'used' requests back to 0.
+  if (authLimiter) {
+    authLimiter.resetKey(req.ip);
+  }
 
-    // 2. Now manually set the header to tell the client they are full again
-    // We hardcode '10' (or whatever your max is) because we just reset it.
-    res.setHeader('RateLimit-Remaining', 10); 
-    
-    // 3. Continue
-    if (next) next();
+  // 2. Now manually set the header to tell the client they are full again
+  // We hardcode '10' (or whatever your max is) because we just reset it.
+  res.setHeader("RateLimit-Remaining", 10);
+
+  // 3. Continue
+  if (next) next();
 };
 
 // --- 1. REQUIRE ADMIN (Authorization) ---
