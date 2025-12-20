@@ -19,6 +19,9 @@ export default function BookDetail() {
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // --- NEW: State for Read More ---
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => { 
     window.scrollTo(0, 0);
@@ -64,6 +67,14 @@ export default function BookDetail() {
   if (loading || !book) return <SkeletonBookDetail />;
   
   const isOutOfStock = book.stock === 0;
+
+  // --- NEW: Truncation Logic ---
+  const DESCRIPTION_LIMIT = 350; // Character limit
+  const shouldTruncate = book.description && book.description.length > DESCRIPTION_LIMIT;
+  
+  const displayedDescription = isExpanded || !shouldTruncate
+    ? book.description
+    : book.description.substring(0, DESCRIPTION_LIMIT) + "...";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -131,8 +142,19 @@ export default function BookDetail() {
                   </a>
                 </div>
 
+                {/* --- UPDATED DESCRIPTION SECTION --- */}
                 <div className="prose prose-sm md:prose-base prose-slate text-slate-600 leading-relaxed mb-8 max-w-none">
-                  <p>{book.description}</p>
+                  <p>
+                    {displayedDescription}
+                    {shouldTruncate && (
+                      <button 
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="ml-2 text-indigo-600 font-bold hover:underline focus:outline-none text-sm"
+                      >
+                        {isExpanded ? "Read Less" : "Read More"}
+                      </button>
+                    )}
+                  </p>
                 </div>
 
                 {/* Pricing & Action */}
