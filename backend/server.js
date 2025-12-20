@@ -40,7 +40,7 @@ app.use(cors({
 app.use(helmet());
 
 // --- 2. GLOBAL RATE LIMITING ---
-const limitAmount = process.env.NODE_ENV === 'production' ? 100 : 10000;
+const limitAmount = process.env.NODE_ENV === 'production' ? 1000 : 10000;
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
