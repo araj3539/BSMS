@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom'; // <--- Import Link
+import { useLocation, Link } from 'react-router-dom'; 
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -20,11 +20,19 @@ export default function ChatWidget() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isOpen, loading]);
 
+  // ✅ FIX: Extract ID from URL instead of scraping HTML
   const getContext = () => {
+    // Check if we are on a book detail page (e.g., /book/65a1b2...)
     if (location.pathname.startsWith('/book/')) {
-      const title = document.querySelector('h1')?.innerText;
-      const author = document.querySelector('p.text-xl')?.innerText?.replace('by ', '');
-      if (title) return { title, author };
+      const pathSegments = location.pathname.split('/');
+      const bookId = pathSegments[2]; // Grabs the ID (assumes /book/:id)
+      
+      // Optional: You can still try to grab title for display purposes if needed
+      // but rely on ID for the actual search.
+      return { 
+        type: 'book_detail',
+        bookId: bookId 
+      };
     }
     return null;
   };
@@ -39,10 +47,13 @@ export default function ChatWidget() {
     setInput('');
     setLoading(true);
 
+    // Get the robust context (ID based)
+    const contextData = getContext();
+
     try {
       const res = await api.post('/ai/chat', {
         message: userMsg,
-        context: getContext(),
+        context: contextData, // ✅ Sending { type: 'book_detail', bookId: '...' }
         history: messages 
       });
       
@@ -54,9 +65,11 @@ export default function ChatWidget() {
     }
   }
 
+  // ... (The rest of your JSX remains exactly the same)
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
-      <AnimatePresence>
+       {/* ... existing JSX ... */}
+       <AnimatePresence>
         {isOpen && (
           <motion.div 
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -89,14 +102,12 @@ export default function ChatWidget() {
                         components={{
                           ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1" {...props} />,
                           p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                          // Only style strong tags if they are NOT inside a link (to avoid double styling)
                           strong: ({node, ...props}) => <span className="font-bold text-indigo-700" {...props} />,
-                          // Custom Link Renderer
                           a: ({node, href, children, ...props}) => {
                             return (
                               <Link 
                                 to={href} 
-                                onClick={() => setIsOpen(false)} // Optional: close chat on navigate
+                                onClick={() => setIsOpen(false)}
                                 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 hover:underline cursor-pointer decoration-indigo-500" 
                                 {...props}
                               >

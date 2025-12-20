@@ -19,7 +19,31 @@ router.post('/chat', async (req, res) => {
   try {
     const { message, context, history } = req.body; 
     
-    // --- 1. SMART SEARCH (RAG) ---
+    // --- 1. HANDLING "CURRENT BOOK" CONTEXT (The Fix) ---
+    let currentBookContext = "User is browsing the store.";
+    let focusedBook = null;
+
+    // If frontend sent a bookId, fetch the REAL data from DB
+    if (context && context.bookId) {
+      try {
+        focusedBook = await Book.findById(context.bookId);
+        if (focusedBook) {
+          // We feed the AI the specific details of the book the user is looking at
+          currentBookContext = `
+            User is currently looking at this specific book:
+            Title: "${focusedBook.title}"
+            Author: ${focusedBook.author}
+            Price: ₹${focusedBook.price}
+            Stock: ${focusedBook.stock}
+            Description: ${focusedBook.description}
+          `;
+        }
+      } catch (err) {
+        console.log("Error fetching context book:", err.message);
+      }
+    }
+
+    // --- 2. SMART SEARCH (RAG) ---
     let inventoryContext = "";
     
     try {
@@ -31,59 +55,65 @@ router.post('/chat', async (req, res) => {
       const keywords = rawWords.filter(w => w.length > 2 && !STOP_WORDS.includes(w));
 
       // B. DETECT INTENT
-      if ((lowerMsg.includes('best') || lowerMsg.includes('top') || lowerMsg.includes('popular')) && keywords.length === 0) {
-         books = await Book.find().sort({ rating: -1, soldCount: -1 }).limit(10).select('title author price stock category description rating');
-         inventoryContext += "### TOP RATED / BESTSELLING BOOKS:\n";
-      } 
-      // C. SPECIFIC SEARCH
-      else if (keywords.length > 0) {
-        const regexQueries = keywords.map(k => ({ 
-          $or: [
-            { title: { $regex: k, $options: 'i' } },
-            { author: { $regex: k, $options: 'i' } },
-            { category: { $regex: k, $options: 'i' } } 
-          ]
-        }));
-        
-        books = await Book.find({ $or: regexQueries })
-          .limit(20)
-          .select('title author price stock category description rating');
-      }
+      // If the user is asking about "this book" and we have a focusedBook, 
+      // we skip the search because we already found the book above.
+      const isAskingAboutContext = (lowerMsg.includes('this book') || lowerMsg.includes('it')) && focusedBook;
 
-      // D. FALLBACK
-      if (books.length === 0) {
-         const bestsellers = await Book.find().sort({ soldCount: -1 }).limit(5).select('title author price stock category description rating');
-         inventoryContext += "### BESTSELLERS (General Recommendations):\n";
-         books = bestsellers;
-      }
+      if (!isAskingAboutContext) {
+          if ((lowerMsg.includes('best') || lowerMsg.includes('top') || lowerMsg.includes('popular')) && keywords.length === 0) {
+             books = await Book.find().sort({ rating: -1, soldCount: -1 }).limit(10).select('title author price stock category description rating');
+             inventoryContext += "### TOP RATED / BESTSELLING BOOKS:\n";
+          } 
+          else if (keywords.length > 0) {
+            const regexQueries = keywords.map(k => ({ 
+              $or: [
+                { title: { $regex: k, $options: 'i' } },
+                { author: { $regex: k, $options: 'i' } },
+                { category: { $regex: k, $options: 'i' } } 
+              ]
+            }));
+            
+            books = await Book.find({ $or: regexQueries })
+              .limit(20)
+              .select('title author price stock category description rating');
+          }
 
-      // E. FORMAT DATA (UPDATED FOR LINKS)
-      // We now format the title as a Markdown link: [**Title**](/book/ID)
-      inventoryContext += books.map(b => 
-        `- [**${b.title}**](/book/${b._id}) by ${b.author} (Rating: ${b.rating}★, Price: ₹${b.price})\n  *${b.stock > 0 ? 'In Stock' : 'Out of Stock'}* - ${b.description ? b.description.substring(0, 120) : 'No description'}...`
-      ).join('\n\n');
+          // FALLBACK
+          if (books.length === 0 && !focusedBook) {
+             const bestsellers = await Book.find().sort({ soldCount: -1 }).limit(5).select('title author price stock category description rating');
+             inventoryContext += "### BESTSELLERS (General Recommendations):\n";
+             books = bestsellers;
+          }
+
+          // FORMAT DATA
+          if (books.length > 0) {
+            inventoryContext += books.map(b => 
+              `- [**${b.title}**](/book/${b._id}) by ${b.author} (Rating: ${b.rating}★, Price: ₹${b.price})\n  *${b.stock > 0 ? 'In Stock' : 'Out of Stock'}* - ${b.description ? b.description.substring(0, 120) : 'No description'}...`
+            ).join('\n\n');
+          }
+      } else {
+        inventoryContext = "User is asking about the book defined in CONTEXT above. Answer based on that.";
+      }
 
     } catch (err) {
       console.error("RAG Error", err);
     }
 
-    const inventoryData = inventoryContext || "NO BOOKS AVAILABLE.";
-    const currentBookContext = context 
-      ? `User is currently viewing: **${context.title}** by ${context.author}.` 
-      : "User is browsing the store.";
+    const inventoryData = inventoryContext || "NO OTHER BOOKS FOUND.";
 
     let formattedHistory = (history || []).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model', 
         parts: [{ text: msg.text }]
     }));
 
+    // Ensure history starts with user (Gemini requirement)
     if (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
         formattedHistory.shift();
     }
 
-    // --- 3. SYSTEM PROMPT (UPDATED) ---
+    // --- 3. SYSTEM PROMPT ---
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash", 
+      model: "gemini-1.5-flash", 
       systemInstruction: `
         You are the knowledgeable Bookstore Assistant for "Readify".
         
@@ -91,12 +121,12 @@ router.post('/chat', async (req, res) => {
         Help customers find books using ONLY the provided inventory.
 
         ### 🧠 CRITICAL RULES:
-        1. **LINKS:** When suggesting a book, you MUST use the link format provided in the inventory (e.g., [**Title**](/book/id)). This allows the user to click and view the book.
-        2. **INVENTORY CHECK:** If a book is NOT listed in the "STORE INVENTORY" below, do not recommend it.
-        3. **NO OFF-TOPIC:** Refuse questions about news, weather, math, or coding.
-        4. **FORMATTING:** Keep it concise.
+        1. **CONTEXT FIRST:** If the "CURRENT CONTEXT" below has book details, use that to answer questions like "tell me more" or "what is the price?".
+        2. **LINKS:** When suggesting a book, you MUST use the link format provided in the inventory (e.g., [**Title**](/book/id)).
+        3. **INVENTORY CHECK:** If a book is NOT listed in the "STORE INVENTORY" or "CURRENT CONTEXT", do not recommend it.
+        4. **NO OFF-TOPIC:** Refuse questions about news, weather, math, or coding.
 
-        ### 📚 STORE INVENTORY (Source of Truth):
+        ### 📚 STORE INVENTORY (Search Results):
         ${inventoryData}
       `
     });
@@ -105,7 +135,16 @@ router.post('/chat', async (req, res) => {
       history: formattedHistory,
     });
 
-    const result = await chat.sendMessage(`CONTEXT: ${currentBookContext}\nUSER QUESTION: ${message}`);
+    // We pass the focused book details explicitly in the prompt
+    const finalPrompt = `
+    CURRENT CONTEXT: 
+    ${currentBookContext}
+
+    USER QUESTION: 
+    ${message}
+    `;
+
+    const result = await chat.sendMessage(finalPrompt);
     const aiReply = result.response.text();
 
     res.json({ reply: aiReply });
