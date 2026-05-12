@@ -13,7 +13,6 @@ export default function ReadBook() {
   useEffect(() => {
     const verifyAndFetchAccess = async () => {
       try {
-        // Just hit the standard read route to get the HTML URL string
         const { data } = await api.get(`/books/${id}/read`);
         setBookData(data);
       } catch (err) {
@@ -26,6 +25,24 @@ export default function ReadBook() {
 
     verifyAndFetchAccess();
   }, [id, navigate]);
+
+  // --- THE FIX: Smart URL Formatter ---
+  const getSecureUrl = (url) => {
+    if (!url) return "";
+    
+    // If it is a Gutenberg link, we bypass their HTTP redirect 
+    // by building the direct HTTPS cache URL ourselves.
+    if (url.includes('gutenberg.org')) {
+      const match = url.match(/(\d+)/); // Extracts the book ID (e.g., 768)
+      if (match && match[0]) {
+        const bookId = match[0];
+        return `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}-images.html`;
+      }
+    }
+    
+    // Fallback for non-Gutenberg links
+    return url.replace('http://', 'https://');
+  };
 
   if (loading) {
     return (
@@ -53,7 +70,8 @@ export default function ReadBook() {
       {/* The Embedded HTML Reader */}
       <div className="flex-grow w-full bg-white relative">
         <iframe
-          src={bookData.ebookUrl.replace('http://', 'https://')} // Your Gutenberg HTML link goes right here!
+          // Use our smart formatter to guarantee a secure HTTPS destination
+          src={getSecureUrl(bookData.ebookUrl)} 
           title={bookData.title}
           className="w-full h-full border-0 absolute inset-0"
           sandbox="allow-same-origin allow-scripts allow-popups"
