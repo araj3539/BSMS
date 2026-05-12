@@ -1,6 +1,7 @@
 // backend/routes/books.js
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
 const { auth } = require('../middleware/auth'); // Removed 'isAdmin' import
@@ -356,6 +357,47 @@ router.get('/:id/read', auth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error verifying access" });
+  }
+});
+
+router.get('/:id/download-epub', auth, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid Book ID format' });
+    }
+
+    const bookId = req.params.id;
+    const userId = req.user.id; 
+
+    // Verify purchase
+    const hasPurchased = await Order.findOne({
+      userId: userId,
+      'items.bookId': bookId,
+      status: { $in: ['processing', 'shipped', 'delivered'] } 
+    });
+
+    const isAdmin = req.user.role === 'admin';
+
+    if (!hasPurchased && !isAdmin) {
+      return res.status(403).json({ message: "You must purchase this book to read it." });
+    }
+
+    const book = await Book.findById(bookId).select('ebookUrl');
+    
+    if (!book || !book.ebookUrl) {
+      return res.status(404).json({ message: "Digital format not available." });
+    }
+
+    // Backend fetches the file from Gutenberg (Servers ignore CORS!)
+    const response = await axios.get(book.ebookUrl, { responseType: 'arraybuffer' });
+
+    // Send the raw file data back to our React app
+    res.setHeader('Content-Type', 'application/epub+zip');
+    res.send(response.data);
+
+  } catch (error) {
+    console.error("Proxy Error:", error.message);
+    res.status(500).json({ message: "Failed to securely load the ebook file." });
   }
 });
 
