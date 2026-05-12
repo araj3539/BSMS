@@ -360,6 +360,9 @@ router.get('/:id/read', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/books/:id/download-epub
+// @desc    Securely fetch the EPUB file as an ArrayBuffer and send it to the frontend
+// @access  Private
 router.get('/:id/download-epub', auth, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -388,16 +391,25 @@ router.get('/:id/download-epub', auth, async (req, res) => {
       return res.status(404).json({ message: "Digital format not available." });
     }
 
-    // Backend fetches the file from Gutenberg (Servers ignore CORS!)
-    const response = await axios.get(book.ebookUrl, { responseType: 'arraybuffer' });
+    // --- THE FIX: Add Headers to fake a real Chrome browser ---
+    const response = await axios.get(book.ebookUrl, { 
+      responseType: 'arraybuffer',
+      maxRedirects: 5, // Gutenberg uses multiple redirects, we must follow them
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/epub+zip, application/pdf, text/html, */*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive'
+      }
+    });
 
     // Send the raw file data back to our React app
     res.setHeader('Content-Type', 'application/epub+zip');
     res.send(response.data);
 
   } catch (error) {
-    console.error("Proxy Error:", error.message);
-    res.status(500).json({ message: "Failed to securely load the ebook file." });
+    console.error("Proxy Error Details:", error.response ? error.response.status : error.message);
+    res.status(500).json({ message: "Failed to securely load the ebook file from the source." });
   }
 });
 
