@@ -53,7 +53,7 @@ export default function ReadBook() {
       {/* The Embedded HTML Reader */}
       <div className="flex-grow w-full bg-white relative">
         <iframe
-          src={bookData.ebookUrl} // Your Gutenberg HTML link goes right here!
+          src={bookData.ebookUrl.replace('http://', 'https://')} // Your Gutenberg HTML link goes right here!
           title={bookData.title}
           className="w-full h-full border-0 absolute inset-0"
           sandbox="allow-same-origin allow-scripts allow-popups"
