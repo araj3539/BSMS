@@ -10,6 +10,7 @@ export default function ListenBook() {
   
   const [bookData, setBookData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [audioSrc, setAudioSrc] = useState(""); // NEW: Stores the direct MP3 link
   
   // Audio Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -26,7 +27,43 @@ export default function ListenBook() {
           navigate(-1);
           return;
         }
+        
         setBookData(data);
+        
+        // --- THE MAGIC: DYNAMIC MP3 EXTRACTOR ---
+        const url = data.audiobookUrl;
+        
+        // Check if it's a LibriVox/Archive.org ZIP link
+        if (url.includes('archive.org/compress/')) {
+          // Extract the unique book identifier from the URL
+          const match = url.match(/compress\/([^/]+)/);
+          if (match && match[1]) {
+            const identifier = match[1];
+            try {
+              // Ask Archive.org for the metadata of this specific book
+              const metaRes = await fetch(`https://archive.org/metadata/${identifier}`);
+              const metaData = await metaRes.json();
+              
+              // Find the first actual .mp3 file inside the archive
+              const mp3File = metaData.files.find(f => f.name.endsWith('.mp3'));
+              
+              if (mp3File) {
+                // Build the direct streaming URL
+                const directUrl = `https://archive.org/download/${identifier}/${mp3File.name}`;
+                setAudioSrc(directUrl);
+              } else {
+                toast.error("Could not extract a playable MP3 from this archive.");
+              }
+            } catch (err) {
+              console.error("Archive API Error:", err);
+              toast.error("Failed to parse audiobook metadata.");
+            }
+          }
+        } else {
+          // If it's already a standard link (like Cloudinary), just use it
+          setAudioSrc(url.replace('http://', 'https://'));
+        }
+
       } catch (err) {
         toast.error(err.response?.data?.message || "Access denied.");
         navigate('/my-orders'); 
@@ -38,7 +75,6 @@ export default function ListenBook() {
     fetchAudioAccess();
   }, [id, navigate]);
 
-  // Audio Event Listeners
   const togglePlay = () => {
     if (isPlaying) audioRef.current.pause();
     else audioRef.current.play();
@@ -58,7 +94,6 @@ export default function ListenBook() {
     if (audioRef.current) audioRef.current.currentTime = time;
   };
 
-  // Helper to format seconds into MM:SS
   const formatTime = (time) => {
     if (isNaN(time)) return "00:00";
     const min = Math.floor(time / 60);
@@ -66,29 +101,25 @@ export default function ListenBook() {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
-  if (loading) {
+  if (loading || !audioSrc) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mb-4"></div>
+        <p className="text-slate-400 text-sm animate-pulse">Extracting audio stream...</p>
       </div>
     );
   }
 
-  if (!bookData) return null;
-
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900 flex flex-col font-sans text-white">
-      {/* Hidden Audio Element */}
-      {/* Note: We force HTTPS just in case your DB has an HTTP link */}
       <audio 
         ref={audioRef}
-        src={bookData.audiobookUrl.replace('http://', 'https://')}
+        src={audioSrc}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={() => setIsPlaying(false)}
       />
 
-      {/* Top Navigation Bar */}
       <div className="h-20 flex items-center justify-between px-6 lg:px-12 bg-slate-900 border-b border-slate-800">
         <h1 className="font-bold text-lg text-slate-200 truncate pr-4">{bookData.title}</h1>
         <button 
@@ -99,15 +130,12 @@ export default function ListenBook() {
         </button>
       </div>
 
-      {/* Main Player Area */}
       <div className="flex-grow flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-900 to-slate-900">
         
-        {/* Animated Disc/Cover Graphic */}
         <div className={`relative w-48 h-48 md:w-64 md:h-64 mb-12 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 p-1 shadow-2xl shadow-indigo-900/50 transition-transform duration-700 ${isPlaying ? 'scale-105' : 'scale-100'}`}>
           <div className={`w-full h-full rounded-full bg-slate-900 border-4 border-slate-800 flex items-center justify-center ${isPlaying ? 'animate-[spin_10s_linear_infinite]' : ''}`}>
              <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700"></div>
           </div>
-          {/* Audio Waves graphic */}
           {isPlaying && (
             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-1 items-end h-6">
                {[1,2,3,4,5].map(i => (
@@ -121,10 +149,8 @@ export default function ListenBook() {
           {bookData.title} <span className="text-indigo-400 text-sm font-sans uppercase tracking-widest block mt-2">Audiobook</span>
         </h2>
 
-        {/* Controls Container */}
         <div className="w-full max-w-2xl bg-slate-800/50 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-slate-700/50 shadow-xl">
           
-          {/* Progress Bar */}
           <div className="flex items-center gap-4 mb-8">
             <span className="text-xs font-medium text-slate-400 w-10 text-right">{formatTime(currentTime)}</span>
             <input 
@@ -139,7 +165,6 @@ export default function ListenBook() {
           </div>
 
           <div className="flex items-center justify-between">
-            {/* Volume Control */}
             <div className="flex items-center gap-2 hidden md:flex w-32">
               <span className="text-slate-400 text-sm">🔈</span>
               <input 
@@ -148,7 +173,6 @@ export default function ListenBook() {
               />
             </div>
 
-            {/* Play/Pause Buttons */}
             <div className="flex items-center gap-6 md:gap-8 mx-auto md:mx-0">
               <button onClick={() => handleSeek({target: {value: Math.max(0, currentTime - 15)}})} className="text-slate-400 hover:text-white transition">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="10" y="16" fontSize="8" fill="currentColor" stroke="none" fontFamily="sans-serif">15</text></svg>
@@ -167,7 +191,7 @@ export default function ListenBook() {
               </button>
             </div>
 
-            <div className="w-32 hidden md:block"></div> {/* Spacer for symmetry */}
+            <div className="w-32 hidden md:block"></div>
           </div>
         </div>
       </div>
