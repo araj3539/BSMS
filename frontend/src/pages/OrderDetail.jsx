@@ -74,6 +74,9 @@ export default function OrderDetail() {
   const isCancelled = order.status === 'cancelled';
   const formatMoney = (amount) => Number(amount || 0).toFixed(2);
 
+  // If status is processing or above, they paid and can read digital items.
+  const canAccessDigitalContent = currentStep >= 1 && !isCancelled;
+
   return (
     <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 md:py-10 pb-24">
       {/* Back Link */}
@@ -152,15 +155,28 @@ export default function OrderDetail() {
             </div>
             <div className="divide-y divide-slate-50">
                 {order.items.map((item, i) => (
-                    <div key={i} className="p-4 flex gap-4 hover:bg-slate-50/50 transition-colors">
-                        <div className="w-12 h-16 bg-slate-100 rounded-lg flex items-center justify-center text-xl shadow-inner flex-shrink-0">
-                            📖
+                    <div key={i} className="p-4 flex flex-col md:flex-row gap-4 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex gap-4 flex-1">
+                          <div className="w-12 h-16 bg-slate-100 rounded-lg flex items-center justify-center text-xl shadow-inner flex-shrink-0">
+                              📖
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-900 text-sm md:text-base leading-tight mb-1">{item.title}</p>
+                              <p className="text-xs text-slate-500 font-medium mb-3">Qty: {item.qty} × ₹{formatMoney(item.price)}</p>
+                              
+                              {/* NEW: Read Now Button rendered if payment is successful */}
+                              {canAccessDigitalContent && (
+                                <Link 
+                                  to={`/read/${item.bookId}`}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                  Read Ebook
+                                </Link>
+                              )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-bold text-slate-900 text-sm md:text-base leading-tight mb-1">{item.title}</p>
-                            <p className="text-xs text-slate-500 font-medium">Qty: {item.qty} × ₹{formatMoney(item.price)}</p>
-                        </div>
-                        <div className="font-bold text-slate-900 text-sm md:text-base text-right">
+                        <div className="font-bold text-slate-900 text-sm md:text-base text-right md:w-24">
                             ₹{formatMoney(item.price * item.qty)}
                         </div>
                     </div>

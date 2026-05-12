@@ -197,7 +197,9 @@ router.post('/bulk',
             category: data.category || 'General',
             description: data.description || '',
             isbn: data.isbn || '',
-            coverImageUrl: data.coverImageUrl || '' 
+            coverImageUrl: data.coverImageUrl || '' ,
+            ebookUrl: data.ebookUrl || '',
+            audiobookUrl: data.audiobookUrl || ''
           });
         }
       })
@@ -313,6 +315,48 @@ router.post('/:id/reviews/:reviewId/replies', auth, async (req, res) => {
     await book.save();
     res.json({ msg: 'Reply added' });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+// --- NEW SECURE READER ROUTE ---
+// @route   GET /api/books/:id/read
+// @desc    Get book access links ONLY if user has purchased it
+// @access  Private
+router.get('/:id/read', auth, async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    const userId = req.user.id; // Corrected to req.user.id to match your auth middleware
+
+    // 1. Check if the user has a completed order containing this book
+    const hasPurchased = await Order.findOne({
+      userId: userId,
+      'items.bookId': bookId,
+      status: { $in: ['processing', 'shipped', 'delivered'] } // Assuming these mean paid
+    });
+
+    // 2. If they are an admin, let them read it anyway for testing
+    const isAdmin = req.user.role === 'admin';
+
+    if (!hasPurchased && !isAdmin) {
+      return res.status(403).json({ message: "You must purchase this book to read it." });
+    }
+
+    // 3. Fetch the book and send the secure URL
+    const book = await Book.findById(bookId).select('title ebookUrl audiobookUrl');
+    
+    if (!book || (!book.ebookUrl && !book.audiobookUrl)) {
+      return res.status(404).json({ message: "Digital format not available for this book." });
+    }
+
+    res.json({
+      title: book.title,
+      ebookUrl: book.ebookUrl,
+      audiobookUrl: book.audiobookUrl
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error verifying access" });
+  }
 });
 
 module.exports = router;

@@ -29,6 +29,9 @@ import Wishlist from "./pages/Wishlist";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+// NEW: Import ReadBook
+import ReadBook from "./pages/ReadBook";
+
 // Admin Pages
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminBooks from "./pages/AdminBooks";
@@ -46,11 +49,6 @@ function App() {
           <ScrollToTop />
           <Header />
 
-          {/* FIX APPLIED HERE:
-            - pt-36 (144px): Clears the header on Mobile (Logo h-24 + padding)
-            - md:pt-48 (192px): Clears the header on Desktop (Logo h-32 + padding)
-            This pushes all page content down so it's not hidden behind the logo.
-          */}
           <main className="flex-grow pt-36 md:pt-48 px-4 md:px-8 container mx-auto">
             <Routes>
               {/* Public Routes */}
@@ -72,6 +70,9 @@ function App() {
                 <Route path="/order/:id" element={<OrderDetail />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/wishlist" element={<Wishlist />} />
+                
+                {/* NEW: Secure Reader Route */}
+                <Route path="/read/:id" element={<ReadBook />} />
               </Route>
 
               {/* Admin Routes */}
