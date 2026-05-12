@@ -31,6 +31,7 @@ import ResetPassword from "./pages/ResetPassword";
 
 // NEW: Import ReadBook
 import ReadBook from "./pages/ReadBook";
+import ListenBook from "./pages/ListenBook";
 
 // Admin Pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -73,6 +74,7 @@ function App() {
                 
                 {/* NEW: Secure Reader Route */}
                 <Route path="/read/:id" element={<ReadBook />} />
+                <Route path="/listen/:id" element={<ListenBook />} />
               </Route>
 
               {/* Admin Routes */}
