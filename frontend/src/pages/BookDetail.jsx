@@ -20,7 +20,6 @@ export default function BookDetail() {
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // --- NEW: State for Read More ---
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => { 
@@ -64,14 +63,27 @@ export default function BookDetail() {
     setQty(Math.max(1, Math.min(book.stock, Math.floor(val))));
   }
 
+  // --- THE FIX: Category Array Parser ---
+  const getCategories = (categoryString) => {
+    if (!categoryString) return ["General"];
+    if (categoryString.startsWith('[')) {
+      try {
+        const cleanedString = categoryString.replace(/[[\]']/g, '');
+        return cleanedString.split(',').map(c => c.trim()).filter(Boolean);
+      } catch (e) {
+        return ["General"];
+      }
+    }
+    return [categoryString];
+  };
+
   if (loading || !book) return <SkeletonBookDetail />;
   
   const isOutOfStock = book.stock === 0;
+  const categoriesArray = getCategories(book.category); // Parse them here!
 
-  // --- NEW: Truncation Logic ---
-  const DESCRIPTION_LIMIT = 350; // Character limit
+  const DESCRIPTION_LIMIT = 350; 
   const shouldTruncate = book.description && book.description.length > DESCRIPTION_LIMIT;
-  
   const displayedDescription = isExpanded || !shouldTruncate
     ? book.description
     : book.description.substring(0, DESCRIPTION_LIMIT) + "...";
@@ -121,10 +133,14 @@ export default function BookDetail() {
             {/* RIGHT: Details */}
             <div className="flex-1 p-5 md:p-8 lg:p-12 relative z-10">
               <div className="flex flex-col h-full justify-center">
-                <div className="mb-2 md:mb-4">
-                   <span className="inline-block px-2 md:px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-full border border-indigo-100">
-                      {book.category}
-                   </span>
+                
+                {/* --- THE UPGRADED CATEGORY ROW --- */}
+                <div className="mb-3 md:mb-5 flex flex-wrap gap-2">
+                   {categoriesArray.map((cat, idx) => (
+                     <span key={idx} className="inline-block px-2 md:px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-full border border-indigo-100">
+                        {cat}
+                     </span>
+                   ))}
                 </div>
 
                 <h1 className="text-2xl md:text-4xl lg:text-5xl font-serif font-bold text-slate-900 leading-tight mb-2">
@@ -142,7 +158,6 @@ export default function BookDetail() {
                   </a>
                 </div>
 
-                {/* --- UPDATED DESCRIPTION SECTION --- */}
                 <div className="prose prose-sm md:prose-base prose-slate text-slate-600 leading-relaxed mb-8 max-w-none">
                   <p>
                     {displayedDescription}
@@ -167,14 +182,12 @@ export default function BookDetail() {
                   </div>
 
                   <div className="flex items-center gap-3 w-full sm:w-auto flex-1 justify-end">
-                      {/* Quantity */}
                       <div className={`flex items-center border border-slate-200 rounded-xl bg-slate-50 h-12 ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
                           <button onClick={() => updateQty(qty - 1)} disabled={qty <= 1} className="w-10 h-full text-slate-500 hover:text-slate-800 hover:bg-white rounded-l-xl transition-colors text-lg">-</button>
                           <div className="w-10 text-center font-bold text-slate-900">{qty}</div>
                           <button onClick={() => updateQty(qty + 1)} disabled={qty >= book.stock} className="w-10 h-full text-slate-500 hover:text-slate-800 hover:bg-white rounded-r-xl transition-colors text-lg">+</button>
                       </div>
                       
-                      {/* Button */}
                       <button
                           onClick={addToCart}
                           disabled={isOutOfStock || adding}
