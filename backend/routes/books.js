@@ -90,6 +90,39 @@ router.post('/batch', async (req, res) => {
   }
 });
 
+
+// --- NEW: MY LIBRARY ROUTE ---
+// @route   GET /api/books/my-library
+// @desc    Get all unique books purchased by the user
+// @access  Private
+router.get('/my-library', auth, async (req, res) => {
+  try {
+    // 1. Find all successful orders for this user
+    const orders = await Order.find({
+      userId: req.user.id,
+      status: { $in: ['processing', 'shipped', 'delivered'] }
+    });
+
+    // 2. Extract unique book IDs using a Set to prevent duplicates
+    const bookIds = new Set();
+    orders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.bookId) bookIds.add(item.bookId.toString());
+      });
+    });
+
+    // 3. Fetch the actual book details for those IDs
+    const libraryBooks = await Book.find({
+      _id: { $in: Array.from(bookIds) }
+    }).select('title author coverImageUrl ebookUrl audiobookUrl category');
+
+    res.json(libraryBooks);
+  } catch (error) {
+    console.error("Library Error:", error);
+    res.status(500).json({ msg: 'Server Error fetching library' });
+  }
+});
+
 // Get Single Book (Public)
 router.get('/:id', async (req, res) => {
   try {

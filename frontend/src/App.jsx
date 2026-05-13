@@ -20,6 +20,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Cart from "./pages/Cart";
+import MyLibrary from "./pages/MyLibrary";
 import Checkout from "./pages/Checkout";
 import BookDetail from "./pages/BookDetail";
 import MyOrders from "./pages/MyOrders";
@@ -67,6 +68,7 @@ function App() {
               {/* Protected Customer Routes */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/my-library" element={<MyLibrary />} />
                 <Route path="/my-orders" element={<MyOrders />} />
                 <Route path="/order/:id" element={<OrderDetail />} />
                 <Route path="/profile" element={<Profile />} />
