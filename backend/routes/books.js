@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    if (category) filter.category = category;
+    if (category) filter.category = { $regex: category, $options: 'i' };
 
     if (minPrice || maxPrice) {
       filter.price = {};

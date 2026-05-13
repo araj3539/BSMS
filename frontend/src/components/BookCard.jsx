@@ -25,6 +25,28 @@ export default function BookCard({ book }) {
     }
   }
 
+  // --- THE UPGRADED CATEGORY PARSER ---
+  // Converts "['Classics', 'Fiction']" into an actual array: ["Classics", "Fiction"]
+  const getCategories = (categoryString) => {
+    if (!categoryString) return ["General"];
+    
+    if (categoryString.startsWith('[')) {
+      try {
+        const cleanedString = categoryString.replace(/[[\]']/g, '');
+        return cleanedString.split(',').map(c => c.trim()).filter(Boolean);
+      } catch (e) {
+        return ["General"];
+      }
+    }
+    
+    return [categoryString]; // Fallback for normal strings
+  };
+
+  const categoriesArray = getCategories(book.category);
+  const primaryCategory = categoriesArray[0];
+  const extraCategoriesCount = categoriesArray.length - 1;
+  const tooltipText = categoriesArray.slice(1).join(', '); // For the hover effect
+
   return (
     <motion.div 
       layout
@@ -60,12 +82,24 @@ export default function BookCard({ book }) {
         )}
       </div>
 
-      {/* Content - Reduced padding for mobile (p-3) */}
+      {/* Content */}
       <div className="p-3 sm:p-5 flex flex-col flex-1">
-        <div className="mb-1 sm:mb-2">
-           <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
-             {book.category}
+        
+        {/* NEW: Multi-Category Badge Display */}
+        <div className="mb-1 sm:mb-2 flex items-center gap-1.5 flex-wrap">
+           <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate max-w-[120px]">
+             {primaryCategory}
            </span>
+           
+           {/* If the book belongs to multiple categories, show the sleek "+X" badge */}
+           {extraCategoriesCount > 0 && (
+             <span 
+               className="inline-block px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[9px] sm:text-[10px] font-bold cursor-help"
+               title={`Also in: ${tooltipText}`} // Native browser tooltip on hover
+             >
+               +{extraCategoriesCount}
+             </span>
+           )}
         </div>
         
         <Link to={`/book/${book._id}`} className="block mb-1">
