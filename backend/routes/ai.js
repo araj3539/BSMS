@@ -131,9 +131,10 @@ router.post("/chat", async (req, res) => {
             },
           },
         ]);
+        console.log("Raw Vector Search Results:", books.map(b => ({ title: b.title, score: b.score })));
 
         // FILTERING (Optional): Only keep results with a strong similarity score
-        books = books.filter((b) => b.score > 0.65);
+        // books = books.filter((b) => b.score > 0.65);
 
         // FORMAT DATA
         if (books.length > 0) {
