@@ -12,8 +12,19 @@ const stream = require('stream');
 
 // Import Security Middleware
 const { requireAdmin, audit } = require('../middleware/security');
-
 const upload = multer({ storage: multer.memoryStorage() });
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Helper function to create vectors
+async function generateBookEmbedding(title, author, category, description) {
+  // Combine all relevant textual data into one block of context
+  const textToEmbed = `Title: ${title}. Author: ${author}. Category: ${category}. Description: ${description}`;
+  
+  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+  const result = await model.embedContent(textToEmbed);
+  return result.embedding.values; 
+}
 
 // --- HELPER: Escape Regex for Security ---
 function escapeRegex(text) {

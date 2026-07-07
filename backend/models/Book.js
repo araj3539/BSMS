@@ -28,6 +28,7 @@ const BookSchema = new mongoose.Schema({
   ebookUrl: { type: String },
   audiobookUrl: { type: String },
   soldCount: { type: Number, default: 0 },
+  embedding: { type: [Number], select: false },
 
   reviews: [ReviewSchema],
   rating: { type: Number, required: true, default: 0 },
