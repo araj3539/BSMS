@@ -98,9 +98,12 @@ router.post("/chat", async (req, res) => {
       if (!isAskingAboutContext) {
         // 1. Convert the user's chat message into a mathematical vector
         const embeddingModel = genAI.getGenerativeModel({
-          model: "text-embedding-004",
+          model: "gemini-embedding-2",
         });
-        const queryResult = await embeddingModel.embedContent(message);
+        const queryResult = await embeddingModel.embedContent({
+          content: { parts: [{ text: message }] }, // <-- Properly formatted Content object
+          outputDimensionality: 768,
+        });
         const queryVector = queryResult.embedding.values;
 
         // 2. Perform a semantic search in MongoDB using Cosine Similarity
@@ -210,12 +213,10 @@ router.post("/chat", async (req, res) => {
     res.json({ reply: aiReply });
   } catch (error) {
     console.error("AI Error:", error.message);
-    res
-      .status(500)
-      .json({
-        reply:
-          "I'm having a little trouble checking the shelves. Ask me again in a moment!",
-      });
+    res.status(500).json({
+      reply:
+        "I'm having a little trouble checking the shelves. Ask me again in a moment!",
+    });
   }
 });
 
