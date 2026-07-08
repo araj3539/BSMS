@@ -4,6 +4,7 @@ const router = express.Router();
 const axios = require('axios');
 const Book = require('../models/Book');
 const Order = require('../models/Order');
+const PlaybackState = require('../models/PlaybackState');
 const { auth } = require('../middleware/auth'); // Removed 'isAdmin' import
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
@@ -454,6 +455,42 @@ router.get('/:id/download-epub', auth, async (req, res) => {
   } catch (error) {
     console.error("Proxy Error Details:", error.response ? error.response.status : error.message);
     res.status(500).json({ message: "Failed to securely load the ebook file from the source." });
+  }
+});
+
+// --- NEW: SMART BOOKMARKING ROUTES ---
+
+// @route   GET /api/books/:id/playback-state
+// @desc    Get the user's last saved playback position
+// @access  Private
+router.get('/:id/playback-state', auth, async (req, res) => {
+  try {
+    const state = await PlaybackState.findOne({ userId: req.user.id, bookId: req.params.id });
+    res.json(state || { trackIndex: 0, currentTime: 0 }); // Return 0s if they haven't started listening yet
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error loading playback state' });
+  }
+});
+
+// @route   PUT /api/books/:id/playback-state
+// @desc    Update the user's playback position
+// @access  Private
+router.put('/:id/playback-state', auth, async (req, res) => {
+  try {
+    const { trackIndex, currentTime } = req.body;
+    
+    // findOneAndUpdate with upsert: true will create the document if it doesn't exist, or update it if it does
+    const state = await PlaybackState.findOneAndUpdate(
+      { userId: req.user.id, bookId: req.params.id },
+      { trackIndex, currentTime },
+      { new: true, upsert: true } 
+    );
+    
+    res.json(state);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error saving playback state' });
   }
 });
 
