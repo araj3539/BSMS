@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
+import BookCard from './BookCard';
 import { useAuth } from "../context/AuthContext";
 import RecommendationList from "../components/RecommendationList";
 import ReviewList from "../components/ReviewList";
@@ -236,6 +237,87 @@ export default function BookDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function RecommendationList({ bookId }) {
+  const [recs, setRecs] = useState({ similar: [], coPurchased: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    
+    const url = bookId ? `/admin/recommendations/${bookId}` : '/admin/recommendations';
+    
+    api.get(url)
+      .then(r => {
+        if (!mounted) return;
+        setRecs({
+          similar: r.data.similar || [],
+          coPurchased: r.data.coPurchased || []
+        });
+      })
+      .catch((err) => { 
+        console.error("Failed to load recommendations", err); 
+      })
+      .finally(() => setLoading(false));
+      
+    return () => { mounted = false; };
+  }, [bookId]);
+
+  if (loading) {
+    return (
+      <div className="border-l border-slate-200 pl-0 lg:pl-12 mt-12 lg:mt-0 space-y-12 animate-pulse">
+        <div className="h-6 w-48 bg-slate-200 rounded mb-6"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="h-64 bg-slate-200 rounded-xl"></div>
+          <div className="h-64 bg-slate-200 rounded-xl"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (recs.similar.length === 0 && recs.coPurchased.length === 0) return null;
+
+  return (
+    <div className="border-l border-slate-200 pl-0 lg:pl-12 mt-12 lg:mt-0 space-y-12">
+      
+      {/* Collaborative Filtering Results */}
+      {recs.coPurchased.length > 0 && (
+        <div>
+          <div className="mb-6">
+            <h3 className="font-serif text-2xl font-bold text-slate-900 mb-2">Frequently Bought Together</h3>
+            <div className="h-1 w-12 bg-emerald-500 rounded-full"></div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">Other readers loved these alongside this book.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {recs.coPurchased.map(b => (
+               <BookCard key={b._id} book={b} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Semantic Vector Search Results */}
+      {recs.similar.length > 0 && (
+        <div>
+          <div className="mb-6">
+            <h3 className="font-serif text-2xl font-bold text-slate-900 mb-2">Similar Vibes</h3>
+            <div className="h-1 w-12 bg-indigo-500 rounded-full"></div>
+            <p className="text-xs text-slate-500 mt-2 font-medium">Books with similar themes, plots, or concepts.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {recs.similar.map(b => (
+               <BookCard key={b._id} book={b} />
+            ))}
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
