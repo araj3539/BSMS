@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
-import BookCard from './BookCard';
 import { useAuth } from "../context/AuthContext";
 import RecommendationList from "../components/RecommendationList";
 import ReviewList from "../components/ReviewList";
@@ -20,7 +19,6 @@ export default function BookDetail() {
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(true);
-  
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => { 
@@ -64,7 +62,6 @@ export default function BookDetail() {
     setQty(Math.max(1, Math.min(book.stock, Math.floor(val))));
   }
 
-  // --- THE FIX: Category Array Parser ---
   const getCategories = (categoryString) => {
     if (!categoryString) return ["General"];
     if (categoryString.startsWith('[')) {
@@ -81,7 +78,7 @@ export default function BookDetail() {
   if (loading || !book) return <SkeletonBookDetail />;
   
   const isOutOfStock = book.stock === 0;
-  const categoriesArray = getCategories(book.category); // Parse them here!
+  const categoriesArray = getCategories(book.category); 
 
   const DESCRIPTION_LIMIT = 350; 
   const shouldTruncate = book.description && book.description.length > DESCRIPTION_LIMIT;
@@ -92,23 +89,22 @@ export default function BookDetail() {
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       
-      {/* --- BREADCRUMB --- */}
+      {/* Breadcrumb Navigation */}
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-6">
         <Link to="/" className="text-xs md:text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-2">
           &larr; Back to Browse
         </Link>
       </div>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* Main Content Area */}
       <div className="container mx-auto px-4 md:px-6">
         <div className="bg-white rounded-2xl md:rounded-3xl shadow-xl border border-slate-100 overflow-hidden relative">
           
-          {/* Decorative Gradient Blob */}
           <div className="absolute top-0 right-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
 
           <div className="flex flex-col md:flex-row">
             
-            {/* LEFT: Image */}
+            {/* Left Side: Book Cover Image */}
             <div className="w-full md:w-5/12 lg:w-1/3 bg-slate-50 p-6 md:p-8 flex items-center justify-center relative">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -131,11 +127,11 @@ export default function BookDetail() {
               </motion.div>
             </div>
 
-            {/* RIGHT: Details */}
+            {/* Right Side: Book Information & Purchasing */}
             <div className="flex-1 p-5 md:p-8 lg:p-12 relative z-10">
               <div className="flex flex-col h-full justify-center">
                 
-                {/* --- THE UPGRADED CATEGORY ROW --- */}
+                {/* Categories */}
                 <div className="mb-3 md:mb-5 flex flex-wrap gap-2">
                    {categoriesArray.map((cat, idx) => (
                      <span key={idx} className="inline-block px-2 md:px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-full border border-indigo-100">
@@ -149,6 +145,7 @@ export default function BookDetail() {
                 </h1>
                 <p className="text-sm md:text-lg text-slate-500 font-medium mb-4 md:mb-6">by <span className="text-slate-800">{book.author}</span></p>
 
+                {/* Ratings */}
                 <div className="flex items-center gap-4 md:gap-6 mb-6 md:mb-8 border-b border-slate-100 pb-6 md:pb-8">
                   <div className="flex items-center gap-2 bg-yellow-50 px-2 md:px-3 py-1.5 rounded-lg border border-yellow-100">
                       <RatingStars rating={book.rating || 0} />
@@ -159,6 +156,7 @@ export default function BookDetail() {
                   </a>
                 </div>
 
+                {/* Description */}
                 <div className="prose prose-sm md:prose-base prose-slate text-slate-600 leading-relaxed mb-8 max-w-none">
                   <p>
                     {displayedDescription}
@@ -173,7 +171,7 @@ export default function BookDetail() {
                   </p>
                 </div>
 
-                {/* Pricing & Action */}
+                {/* Purchasing Controls */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mt-auto pt-4 border-t border-slate-50 md:border-0">
                   <div>
                       <div className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">₹{book.price}</div>
@@ -203,7 +201,7 @@ export default function BookDetail() {
           </div>
         </div>
 
-        {/* --- REVIEWS & RECS GRID --- */}
+        {/* --- REVIEWS & RECOMMENDATIONS GRID --- */}
         <div className="mt-12 md:mt-16 grid lg:grid-cols-12 gap-8 md:gap-12">
           
           {/* Reviews Column */}
@@ -237,87 +235,6 @@ export default function BookDetail() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-export default function RecommendationList({ bookId }) {
-  const [recs, setRecs] = useState({ similar: [], coPurchased: [] });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    
-    const url = bookId ? `/admin/recommendations/${bookId}` : '/admin/recommendations';
-    
-    api.get(url)
-      .then(r => {
-        if (!mounted) return;
-        setRecs({
-          similar: r.data.similar || [],
-          coPurchased: r.data.coPurchased || []
-        });
-      })
-      .catch((err) => { 
-        console.error("Failed to load recommendations", err); 
-      })
-      .finally(() => setLoading(false));
-      
-    return () => { mounted = false; };
-  }, [bookId]);
-
-  if (loading) {
-    return (
-      <div className="border-l border-slate-200 pl-0 lg:pl-12 mt-12 lg:mt-0 space-y-12 animate-pulse">
-        <div className="h-6 w-48 bg-slate-200 rounded mb-6"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="h-64 bg-slate-200 rounded-xl"></div>
-          <div className="h-64 bg-slate-200 rounded-xl"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (recs.similar.length === 0 && recs.coPurchased.length === 0) return null;
-
-  return (
-    <div className="border-l border-slate-200 pl-0 lg:pl-12 mt-12 lg:mt-0 space-y-12">
-      
-      {/* Collaborative Filtering Results */}
-      {recs.coPurchased.length > 0 && (
-        <div>
-          <div className="mb-6">
-            <h3 className="font-serif text-2xl font-bold text-slate-900 mb-2">Frequently Bought Together</h3>
-            <div className="h-1 w-12 bg-emerald-500 rounded-full"></div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Other readers loved these alongside this book.</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {recs.coPurchased.map(b => (
-               <BookCard key={b._id} book={b} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Semantic Vector Search Results */}
-      {recs.similar.length > 0 && (
-        <div>
-          <div className="mb-6">
-            <h3 className="font-serif text-2xl font-bold text-slate-900 mb-2">Similar Vibes</h3>
-            <div className="h-1 w-12 bg-indigo-500 rounded-full"></div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">Books with similar themes, plots, or concepts.</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {recs.similar.map(b => (
-               <BookCard key={b._id} book={b} />
-            ))}
-          </div>
-        </div>
-      )}
-      
     </div>
   );
 }
