@@ -49,46 +49,66 @@ router.get('/recommendations/:bookId?', async (req,res)=>{
 
       // 1. SEMANTIC SEARCH: Find books with similar plot/vibes using Vectors
       let similar = [];
+      let vectorSearchCrashed = false;
+
       if (book.embedding && book.embedding.length > 0) {
-        similar = await Book.aggregate([
-          {
-            $vectorSearch: {
-              index: "vector_index",
-              path: "embedding",
-              queryVector: book.embedding,
-              numCandidates: 100,
-              limit: 10 // Grab top 10 to ensure we have enough after filtering
-            }
-          },
-          // Filter out the current book itself
-          { $match: { _id: { $ne: book._id } } },
-          { $project: { title: 1, author: 1, price: 1, coverImageUrl: 1, rating: 1, category: 1, stock: 1 } },
-          { $limit: 4 } // Return the top 4 closest semantic matches
-        ]);
-      } else {
-         // Fallback if the book hasn't been vectorized yet
+        try {
+          similar = await Book.aggregate([
+            {
+              $vectorSearch: {
+                index: "vector_index",
+                path: "embedding",
+                queryVector: book.embedding,
+                numCandidates: 100,
+                limit: 10 // Grab top 10 to ensure we have enough after filtering
+              }
+            },
+            // Filter out the current book itself
+            { $match: { _id: { $ne: book._id } } },
+            { $project: { title: 1, author: 1, price: 1, coverImageUrl: 1, rating: 1, category: 1, stock: 1 } },
+            { $limit: 4 } // Return the top 4 closest semantic matches
+          ]);
+        } catch (vecErr) {
+          console.warn("Vector search failed (index might be missing/syncing). Falling back...", vecErr.message);
+          vectorSearchCrashed = true;
+        }
+      } 
+      
+      // GUARANTEED FALLBACK: If book has no vector, or vector search crashed, or vector search found nothing
+      if (!book.embedding || book.embedding.length === 0 || vectorSearchCrashed || similar.length === 0) {
+         // Try matching by category first
          similar = await Book.find({ category: book.category, _id: { $ne: book._id } }).sort({ soldCount:-1 }).limit(4);
+         
+         // If STILL empty (e.g. unique category string), fallback to general top-rated books
+         if (similar.length === 0) {
+            similar = await Book.find({ _id: { $ne: book._id } }).sort({ rating: -1, soldCount: -1 }).limit(4);
+         }
       }
 
       // 2. COLLABORATIVE FILTERING: "Customers who bought this also bought..."
-      const coPurchased = await Order.aggregate([
-        // Step 1: Find all successful orders that contain THIS book
-        { $match: { "items.bookId": book._id, status: { $in: ['pending', 'processing', 'shipped', 'delivered'] } } },
-        // Step 2: Flatten the items array so each book is its own row
-        { $unwind: "$items" },
-        // Step 3: Remove the current book from the list (we don't want to recommend the book they are already looking at)
-        { $match: { "items.bookId": { $ne: book._id } } },
-        // Step 4: Group the remaining books and count how many times they appear
-        { $group: { _id: "$items.bookId", count: { $sum: 1 } } },
-        // Step 5: Sort by the most frequently co-purchased
-        { $sort: { count: -1 } },
-        { $limit: 4 },
-        // Step 6: Join with the Books collection to get titles, prices, and images
-        { $lookup: { from: "books", localField: "_id", foreignField: "_id", as: "bookDetails" } },
-        { $unwind: "$bookDetails" },
-        // Step 7: Replace the root structure to return clean book objects
-        { $replaceRoot: { newRoot: "$bookDetails" } }
-      ]);
+      let coPurchased = [];
+      try {
+        coPurchased = await Order.aggregate([
+          // Step 1: Find all successful orders that contain THIS book
+          { $match: { "items.bookId": book._id, status: { $in: ['pending', 'processing', 'shipped', 'delivered'] } } },
+          // Step 2: Flatten the items array so each book is its own row
+          { $unwind: "$items" },
+          // Step 3: Remove the current book from the list (we don't want to recommend the book they are already looking at)
+          { $match: { "items.bookId": { $ne: book._id } } },
+          // Step 4: Group the remaining books and count how many times they appear
+          { $group: { _id: "$items.bookId", count: { $sum: 1 } } },
+          // Step 5: Sort by the most frequently co-purchased
+          { $sort: { count: -1 } },
+          { $limit: 4 },
+          // Step 6: Join with the Books collection to get titles, prices, and images
+          { $lookup: { from: "books", localField: "_id", foreignField: "_id", as: "bookDetails" } },
+          { $unwind: "$bookDetails" },
+          // Step 7: Replace the root structure to return clean book objects
+          { $replaceRoot: { newRoot: "$bookDetails" } }
+        ]);
+      } catch (orderErr) {
+        console.warn("Collaborative filtering failed:", orderErr.message);
+      }
 
       return res.json({ similar, coPurchased });
       
