@@ -1,5 +1,7 @@
 // backend/routes/books.js
 const express = require('express');
+const jwt = require('jsonwebtoken');
+const { getRecommendations } = require('../controllers/recommendation.controller');
 const router = express.Router();
 const axios = require('axios');
 const Book = require('../models/Book');
@@ -17,6 +19,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+
+
 // Helper function to create vectors
 async function generateBookEmbedding(title, author, category, description) {
   // Combine all relevant textual data into one block of context
@@ -31,6 +35,20 @@ async function generateBookEmbedding(title, author, category, description) {
 function escapeRegex(text) {
   return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
+
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded; 
+    } catch (err) {
+      console.warn("Invalid token in optional auth, proceeding as guest.");
+    }
+  }
+  next();
+};
 
 // GET /api/books (Public)
 router.get('/', async (req, res) => {
@@ -493,5 +511,7 @@ router.put('/:id/playback-state', auth, async (req, res) => {
     res.status(500).json({ msg: 'Server error saving playback state' });
   }
 });
+
+router.get('/:id/recommendations', optionalAuth, getRecommendations);
 
 module.exports = router;
