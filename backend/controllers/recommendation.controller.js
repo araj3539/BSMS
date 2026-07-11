@@ -4,18 +4,34 @@ const Order = require('../models/Order');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// 1. Initialize a simple in-memory cache
+const recommendationCache = new Map();
+const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours in milliseconds
+
 exports.getRecommendations = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user ? req.user._id : null; 
+
+    // 2. Check the cache first before making any database or API calls
+    const cacheKey = `${id}_${userId || 'guest'}`;
+    if (recommendationCache.has(cacheKey)) {
+      const cached = recommendationCache.get(cacheKey);
+      if (Date.now() - cached.timestamp < CACHE_TTL) {
+        return res.json(cached.data);
+      }
+    }
 
     const currentBook = await Book.findById(id);
     if (!currentBook) {
       return res.status(404).json({ message: "Book not found" });
     }
 
+    // 3. Limit the catalog payload. Instead of the whole database, send a maximum of 50 books.
+    // You can filter this further by matching the current book's category for even better context.
     const catalog = await Book.find({ _id: { $ne: id }, stock: { $gt: 0 } })
-                              .select('_id title author category tags');
+                              .select('_id title author category tags')
+                              .limit(50);
 
     let purchaseHistoryContext = "The user is browsing anonymously. No past purchase history available.";
     
@@ -61,6 +77,12 @@ exports.getRecommendations = async (req, res) => {
     const recommendedIds = JSON.parse(responseText);
 
     const recommendations = await Book.find({ _id: { $in: recommendedIds } });
+
+    // 4. Save the final result to the cache before sending it to the frontend
+    recommendationCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: recommendations
+    });
 
     res.json(recommendations);
   } catch (error) {
