@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import Book from '../models/Book.js';
-import Order from '../models/Order.js'; // Import your Order model
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import Book from "../models/Book.js";
+import Order from "../models/Order.js"; // Import your Order model
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -15,24 +15,30 @@ export const getRecommendations = async (req, res) => {
     }
 
     // 1. Fetch available inventory
-    const catalog = await Book.find({ _id: { $ne: id }, stock: { $gt: 0 } })
-                              .select('_id title author category tags');
+    const catalog = await Book.find({
+      _id: { $ne: id },
+      stock: { $gt: 0 },
+    }).select("_id title author category tags");
 
     // 2. Fetch User's Purchase History (if logged in)
-    let purchaseHistoryContext = "The user is browsing anonymously. No past purchase history available.";
-    
+    let purchaseHistoryContext =
+      "The user is browsing anonymously. No past purchase history available.";
+
     if (userId) {
-      const pastOrders = await Order.find({ userId }).select('items.title items.price');
+      const pastOrders = await Order.find({ userId }).select(
+        "items.title items.price",
+      );
       if (pastOrders.length > 0) {
         // Extract just the titles to keep the prompt lightweight
-        const purchasedTitles = pastOrders.flatMap(order => 
-          order.items.map(item => item.title)
+        const purchasedTitles = pastOrders.flatMap((order) =>
+          order.items.map((item) => item.title),
         );
         // Deduplicate titles
         const uniquePurchases = [...new Set(purchasedTitles)];
-        purchaseHistoryContext = `The user's past purchase history includes these titles: ${uniquePurchases.join(', ')}. Factor this into their preferences.`;
+        purchaseHistoryContext = `The user's past purchase history includes these titles: ${uniquePurchases.join(", ")}. Factor this into their preferences.`;
       } else {
-        purchaseHistoryContext = "The user has an account but has not made any purchases yet.";
+        purchaseHistoryContext =
+          "The user has an account but has not made any purchases yet.";
       }
     }
 
@@ -61,10 +67,19 @@ export const getRecommendations = async (req, res) => {
 
     // 4. Execute Gemini Prompt
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    console.log("--- GEMINI PROMPT ---");
+    console.log(prompt);
+    console.log("---------------------");
+
     const result = await model.generateContent(prompt);
-    
+    const result = await model.generateContent(prompt);
+
     // 5. Sanitize and Parse
-    const responseText = result.response.text().trim().replace(/```json/g, '').replace(/```/g, '');
+    const responseText = result.response
+      .text()
+      .trim()
+      .replace(/```json/g, "")
+      .replace(/```/g, "");
     const recommendedIds = JSON.parse(responseText);
 
     // 6. Fetch full book objects
@@ -73,6 +88,8 @@ export const getRecommendations = async (req, res) => {
     res.json(recommendations);
   } catch (error) {
     console.error("Recommendation Engine Error:", error);
-    res.status(500).json({ message: "Failed to generate personalized recommendations." });
+    res
+      .status(500)
+      .json({ message: "Failed to generate personalized recommendations." });
   }
 };
