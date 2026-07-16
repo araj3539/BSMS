@@ -4,7 +4,7 @@ const router = express.Router();
 
 const controller = require("../controllers/recommendation.controller");
 
-const auth = require("../../middleware/auth");
+const { auth } = require("../../middleware/auth");
 
 router.post(
 
