@@ -2,18 +2,22 @@ const express = require("express");
 
 const router = express.Router();
 
+const optionalAuth = require("../../middleware/optionalAuth");
+
 const controller = require("../controllers/recommendation.controller");
 
-const { auth } = require("../../middleware/auth");
+router.get("/book/:bookId", controller.recommendBook);
 
-router.post(
+router.get("/search", controller.search);
 
-    "/track",
+router.get("/popular", controller.popular);
 
-    auth,
+router.get(
+  "/book/:bookId/frequently-bought",
 
-    controller.track
-
+  controller.frequentlyBought,
 );
+
+router.get("/home", controller.home);
 
 module.exports = router;
