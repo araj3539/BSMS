@@ -10,7 +10,7 @@ class RecommendationController {
 
             await interactionService.log({
 
-                userId: req.user.id,
+                userId: req.user._id,
 
                 bookId,
 
