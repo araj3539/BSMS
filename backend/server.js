@@ -79,7 +79,10 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/ai', require('./routes/ai'));
-
+app.use(
+    "/api/recommendation",
+    require("./recommendation/routes/recommendation.routes")
+);
 // --- 9. PING ---
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
