@@ -10,7 +10,7 @@ export default function BookCard({ book }) {
   const isOutOfStock = book.stock === 0;
 
   const isWishlisted = user?.wishlist?.some(
-    (item) => (typeof item === "string" ? item : item._id) === book._id
+    (item) => (typeof item === "string" ? item : item._id) === book._id,
   );
 
   async function toggleWishlist(e) {
@@ -19,108 +19,134 @@ export default function BookCard({ book }) {
     try {
       const res = await api.put(`/auth/wishlist/${book._id}`);
       updateProfile(res.data.user);
-      toast.success(isWishlisted ? "Removed from Wishlist" : "Added to Wishlist");
+      toast.success(
+        isWishlisted ? "Removed from Wishlist" : "Added to Wishlist",
+      );
     } catch (err) {
       toast.error("Failed to update wishlist");
     }
   }
 
-  // --- THE UPGRADED CATEGORY PARSER ---
-  // Converts "['Classics', 'Fiction']" into an actual array: ["Classics", "Fiction"]
-  const getCategories = (categoryString) => {
-    if (!categoryString) return ["General"];
-    
-    if (categoryString.startsWith('[')) {
-      try {
-        const cleanedString = categoryString.replace(/[[\]']/g, '');
-        return cleanedString.split(',').map(c => c.trim()).filter(Boolean);
-      } catch (e) {
-        return ["General"];
-      }
+
+  const getCategories = (category) => {
+    if (!category) return ["General"];
+
+    // ✅ New format after normalization
+    if (Array.isArray(category)) {
+      return category.filter(Boolean);
     }
-    
-    return [categoryString]; // Fallback for normal strings
+
+    // ✅ Old format
+    if (typeof category === "string") {
+      if (category.startsWith("[")) {
+        try {
+          return JSON.parse(category.replace(/'/g, '"'));
+        } catch {
+          return ["General"];
+        }
+      }
+
+      return [category];
+    }
+
+    return ["General"];
   };
 
   const categoriesArray = getCategories(book.category);
   const primaryCategory = categoriesArray[0];
   const extraCategoriesCount = categoriesArray.length - 1;
-  const tooltipText = categoriesArray.slice(1).join(', '); // For the hover effect
+  const tooltipText = categoriesArray.slice(1).join(", "); // For the hover effect
 
   return (
-    <motion.div 
+    <motion.div
       layout
-      className={`group relative bg-white rounded-xl sm:rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full card-hover ${isOutOfStock ? 'opacity-75 grayscale-[0.5]' : ''}`}
+      className={`group relative bg-white rounded-xl sm:rounded-2xl border border-slate-100 overflow-hidden flex flex-col h-full card-hover ${isOutOfStock ? "opacity-75 grayscale-[0.5]" : ""}`}
     >
       {/* Image Container */}
       <div className="relative w-full aspect-[2/3] bg-slate-100 overflow-hidden">
         <Link to={`/book/${book._id}`}>
-            <img
-              src={book.coverImageUrl || "/Placeholder.jpg"}
-              alt={book.title}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              loading="lazy"
-            />
+          <img
+            src={book.coverImageUrl || "/Placeholder.jpg"}
+            alt={book.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            loading="lazy"
+          />
         </Link>
-        
+
         <button
           onClick={toggleWishlist}
-          className={`absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2.5 rounded-full shadow-md transition-all duration-300 z-10 ${isWishlisted ? 'bg-red-50 text-red-500' : 'bg-white/90 backdrop-blur text-slate-400 hover:text-red-500 hover:scale-110'}`}
+          className={`absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2.5 rounded-full shadow-md transition-all duration-300 z-10 ${isWishlisted ? "bg-red-50 text-red-500" : "bg-white/90 backdrop-blur text-slate-400 hover:text-red-500 hover:scale-110"}`}
           title="Wishlist"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill={isWishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill={isWishlisted ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="2"
+            className="sm:w-[18px] sm:h-[18px]"
+          >
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
         </button>
-        
+
         {isOutOfStock && (
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-0 pointer-events-none">
-                <span className="bg-white text-slate-900 px-3 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-xl transform -rotate-6">
-                  Sold Out
-                </span>
-            </div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-0 pointer-events-none">
+            <span className="bg-white text-slate-900 px-3 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-xl transform -rotate-6">
+              Sold Out
+            </span>
+          </div>
         )}
       </div>
 
       {/* Content */}
       <div className="p-3 sm:p-5 flex flex-col flex-1">
-        
         {/* NEW: Multi-Category Badge Display */}
         <div className="mb-1 sm:mb-2 flex items-center gap-1.5 flex-wrap">
-           <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate max-w-[120px]">
-             {primaryCategory}
-           </span>
-           
-           {/* If the book belongs to multiple categories, show the sleek "+X" badge */}
-           {extraCategoriesCount > 0 && (
-             <span 
-               className="inline-block px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[9px] sm:text-[10px] font-bold cursor-help"
-               title={`Also in: ${tooltipText}`} // Native browser tooltip on hover
-             >
-               +{extraCategoriesCount}
-             </span>
-           )}
+          <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate max-w-[120px]">
+            {primaryCategory}
+          </span>
+
+          {/* If the book belongs to multiple categories, show the sleek "+X" badge */}
+          {extraCategoriesCount > 0 && (
+            <span
+              className="inline-block px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[9px] sm:text-[10px] font-bold cursor-help"
+              title={`Also in: ${tooltipText}`} // Native browser tooltip on hover
+            >
+              +{extraCategoriesCount}
+            </span>
+          )}
         </div>
-        
+
         <Link to={`/book/${book._id}`} className="block mb-1">
-            <h3 className="font-serif text-sm sm:text-lg font-bold text-slate-900 leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors" title={book.title}>
+          <h3
+            className="font-serif text-sm sm:text-lg font-bold text-slate-900 leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors"
+            title={book.title}
+          >
             {book.title}
-            </h3>
+          </h3>
         </Link>
-        
-        <p className="text-xs sm:text-sm text-slate-500 truncate mb-2 sm:mb-4 font-medium">by {book.author}</p>
-        
+
+        <p className="text-xs sm:text-sm text-slate-500 truncate mb-2 sm:mb-4 font-medium">
+          by {book.author}
+        </p>
+
         <div className="mt-auto pt-2 sm:pt-4 border-t border-slate-50 flex items-center justify-between">
-            <div className="flex flex-col">
-                <span className={`text-base sm:text-xl font-bold ${isOutOfStock ? 'text-slate-400 line-through decoration-red-500/50' : 'text-slate-900'}`}>
-                  ₹{book.price}
-                </span>
-            </div>
-            
-            <div className="flex items-center gap-1 bg-yellow-50 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-lg border border-yellow-100">
-                <span className="text-yellow-500 text-xs sm:text-sm">★</span>
-                <span className="text-[10px] sm:text-xs font-bold text-slate-700">{book.rating || 0}</span>
-            </div>
+          <div className="flex flex-col">
+            <span
+              className={`text-base sm:text-xl font-bold ${isOutOfStock ? "text-slate-400 line-through decoration-red-500/50" : "text-slate-900"}`}
+            >
+              ₹{book.price}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 bg-yellow-50 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-lg border border-yellow-100">
+            <span className="text-yellow-500 text-xs sm:text-sm">★</span>
+            <span className="text-[10px] sm:text-xs font-bold text-slate-700">
+              {book.rating || 0}
+            </span>
+          </div>
         </div>
       </div>
     </motion.div>
