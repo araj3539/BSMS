@@ -165,9 +165,9 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
       })
         .sort({ stock: 1 })
         .limit(10)
-        .select("title stock"),
+        .select("title stock price"),
 
-      Book.find().sort({ soldCount: -1 }).limit(10).select("title soldCount"),
+      Book.find().sort({ soldCount: -1 }).limit(10).select("title author soldCount"),
     ]);
 
     res.json({
