@@ -60,6 +60,8 @@ class OrderService {
       // Stripe refund creation was successful.
       // For this project we mark the payment refunded here.
       order.paymentStatus = "refunded";
+      order.refundId = refund.id;
+      order.refundedAt = new Date();
 
       console.log(
         `[Order Refund] Refund ${refund.id} created for Order ${order._id}`,
