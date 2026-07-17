@@ -1,102 +1,147 @@
 const express = require("express");
+const router = express.Router();
+
 const Order = require("../models/Order");
 const Book = require("../models/Book");
 const User = require("../models/User");
+
 const { auth, isAdmin } = require("../middleware/auth");
-const router = express.Router();
 
-// Sales by day (last N days)
+/* ============================================================
+   SALES BY DAY
+   ============================================================ */
+
 router.get("/sales-by-day", auth, isAdmin, async (req, res) => {
-  const days = Number(req.query.days || 30);
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  const agg = await Order.aggregate([
-    {
-      $match: {
-        paymentStatus: "paid",
-        status: {
-          $ne: "cancelled",
-        },
-        paidAt: {
-          $gte: since,
-        },
-      },
-    },
-    {
-      $group: {
-        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-        total: { $sum: "$totalAmount" },
-        orders: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-  res.json(agg);
-});
-
-// --- NEW ROUTE: Sales by Category ---
-router.get("/category-sales", auth, isAdmin, async (req, res) => {
   try {
-    const stats = await Order.aggregate([
-      // 1. Filter: Only consider paid/completed orders
+    const days = Number(req.query.days || 30);
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const sales = await Order.aggregate([
       {
         $match: {
           paymentStatus: "paid",
-          status: {
-            $ne: "cancelled",
+          status: { $ne: "cancelled" },
+          paidAt: { $gte: since },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$paidAt",
+            },
+          },
+          totalRevenue: {
+            $sum: "$totalAmount",
+          },
+          totalOrders: {
+            $sum: 1,
+          },
+        },
+      },
+      {
+        $sort: {
+          _id: 1,
+        },
+      },
+    ]);
+
+    res.json(sales);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      msg: "Unable to fetch sales data.",
+    });
+  }
+});
+
+/* ============================================================
+   SALES BY CATEGORY
+   ============================================================ */
+
+router.get("/category-sales", auth, isAdmin, async (req, res) => {
+  try {
+    const stats = await Order.aggregate([
+      {
+        $match: {
+          paymentStatus: "paid",
+          status: { $ne: "cancelled" },
+        },
+      },
+
+      {
+        $unwind: "$items",
+      },
+
+      {
+        $lookup: {
+          from: "books",
+          localField: "items.bookId",
+          foreignField: "_id",
+          as: "book",
+        },
+      },
+
+      {
+        $unwind: "$book",
+      },
+
+      {
+        $group: {
+          _id: "$book.category",
+          value: {
+            $sum: {
+              $multiply: ["$items.price", "$items.qty"],
+            },
           },
         },
       },
 
-      // 2. Deconstruct: Split orders into individual items (rows)
-      { $unwind: "$items" },
-
-      // 3. Join: Look up the "Book" details for each item to get the Category
       {
-        $lookup: {
-          from: "books", // collection name in MongoDB (lowercase, plural)
-          localField: "items.bookId",
-          foreignField: "_id",
-          as: "bookInfo",
+        $project: {
+          _id: 0,
+          name: "$_id",
+          value: 1,
         },
       },
 
-      // 4. Flatten: Move bookInfo from an array to an object
-      { $unwind: "$bookInfo" },
-
-      // 5. Group: Sum revenue by Category
       {
-        $group: {
-          _id: "$bookInfo.category",
-          value: { $sum: { $multiply: ["$items.price", "$items.qty"] } },
+        $sort: {
+          value: -1,
         },
       },
-
-      // 6. Format: Rename _id to name for Recharts
-      { $project: { name: "$_id", value: 1, _id: 0 } },
-
-      // 7. Sort: Highest revenue first
-      { $sort: { value: -1 } },
     ]);
 
     res.json(stats);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+
+    res.status(500).json({
+      msg: "Unable to fetch category statistics.",
+    });
   }
 });
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
 
 router.get("/dashboard", auth, isAdmin, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const last7Days = new Date();
+    last7Days.setHours(0, 0, 0, 0);
     last7Days.setDate(last7Days.getDate() - 6);
 
     const [
-      totalRevenue,
-      todayRevenue,
-      weeklyRevenue,
+      totalRevenueAgg,
+      todayRevenueAgg,
+      weeklyRevenueRaw,
       totalOrders,
       pendingOrders,
       totalBooks,
@@ -105,32 +150,36 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
       lowStockBooks,
       topBooks,
     ] = await Promise.all([
-      // Total Revenue
+      /* ============================================================
+         TOTAL REVENUE
+      ============================================================ */
+
       Order.aggregate([
         {
           $match: {
             paymentStatus: "paid",
-            status: {
-              $ne: "cancelled",
-            },
+            status: { $ne: "cancelled" },
           },
         },
         {
           $group: {
             _id: null,
-            total: { $sum: "$totalAmount" },
+            total: {
+              $sum: "$totalAmount",
+            },
           },
         },
       ]),
 
-      // Today's Revenue
+      /* ============================================================
+         TODAY'S REVENUE
+      ============================================================ */
+
       Order.aggregate([
         {
           $match: {
             paymentStatus: "paid",
-            status: {
-              $ne: "cancelled",
-            },
+            status: { $ne: "cancelled" },
             paidAt: {
               $gte: today,
             },
@@ -139,18 +188,22 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         {
           $group: {
             _id: null,
-            total: { $sum: "$totalAmount" },
+            total: {
+              $sum: "$totalAmount",
+            },
           },
         },
       ]),
+
+      /* ============================================================
+         WEEKLY REVENUE
+      ============================================================ */
 
       Order.aggregate([
         {
           $match: {
             paymentStatus: "paid",
-            status: {
-              $ne: "cancelled",
-            },
+            status: { $ne: "cancelled" },
             paidAt: {
               $gte: last7Days,
             },
@@ -179,7 +232,15 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         },
       ]),
 
+      /* ============================================================
+         TOTAL ORDERS
+      ============================================================ */
+
       Order.countDocuments(),
+
+      /* ============================================================
+         PENDING ORDERS
+      ============================================================ */
 
       Order.countDocuments({
         status: {
@@ -187,42 +248,96 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         },
       }),
 
+      /* ============================================================
+         TOTAL BOOKS
+      ============================================================ */
+
       Book.countDocuments(),
+
+      /* ============================================================
+         TOTAL CUSTOMERS
+      ============================================================ */
 
       User.countDocuments({
         role: "customer",
       }),
 
+      /* ============================================================
+         RECENT ORDERS
+      ============================================================ */
+
       Order.find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select("userIdName totalAmount status paymentStatus createdAt"),
+        .populate("userId", "name email")
+        .select("userId totalAmount status paymentStatus createdAt"),
+
+      /* ============================================================
+         LOW STOCK BOOKS
+      ============================================================ */
 
       Book.find({
-        stock: { $lt: 10 },
+        stock: {
+          $lt: 10,
+        },
       })
-        .sort({ stock: 1 })
+        .sort({
+          stock: 1,
+        })
         .limit(10)
-        .select("title stock price"),
+        .select("title author stock price category"),
+
+      /* ============================================================
+         TOP SELLING BOOKS
+      ============================================================ */
 
       Book.find()
-        .sort({ soldCount: -1 })
+        .sort({
+          soldCount: -1,
+        })
         .limit(10)
-        .select("title author soldCount"),
+        .select("title author soldCount stock category"),
     ]);
+
+    const totalRevenue = totalRevenueAgg[0]?.total || 0;
+    const todayRevenue = todayRevenueAgg[0]?.total || 0;
+
+    const weeklyRevenue = [];
+
+    /* ============================================================
+       FILL MISSING DAYS IN WEEKLY CHART
+    ============================================================ */
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - i);
+
+      const dateKey = date.toISOString().split("T")[0];
+
+      const existing = weeklyRevenueRaw.find((item) => item._id === dateKey);
+
+      weeklyRevenue.push({
+        date: dateKey,
+        day: date.toLocaleDateString("en-US", {
+          weekday: "short",
+        }),
+        revenue: existing?.revenue || 0,
+        orders: existing?.orders || 0,
+      });
+    }
+
+    /* ============================================================
+       DASHBOARD RESPONSE
+    ============================================================ */
 
     res.json({
       cards: {
-        totalRevenue: totalRevenue[0]?.total || 0,
-
-        todayRevenue: todayRevenue[0]?.total || 0,
-
+        totalRevenue,
+        todayRevenue,
         totalOrders,
-
         pendingOrders,
-
         totalBooks,
-
         totalCustomers,
       },
 
@@ -236,10 +351,15 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+
     res.status(500).json({
       msg: "Dashboard error",
     });
   }
 });
+
+/* ============================================================
+   EXPORT ROUTER
+   ============================================================ */
 
 module.exports = router;
