@@ -600,6 +600,8 @@ router.put("/:id/cancel", auth, async (req, res) => {
     }
 
     order.status = "cancelled";
+    order.cancelledAt = new Date();
+    
     await order.save();
 
     const bulkOps = order.items.map((item) => ({
