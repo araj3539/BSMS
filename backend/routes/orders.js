@@ -583,9 +583,71 @@ router.put(
   },
 );
 
-// Cancel Order (User Action - No Audit needed, or can be added if desired)
+// Cancel Order - User
 router.put("/:id/cancel", auth, async (req, res) => {
-  const cancelledOrder = await orderService.cancelOrder(order._id);
+  try {
+    // Find order first for ownership validation
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        msg: "Order not found",
+      });
+    }
+
+    // Only the owner can cancel the order
+    if (order.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        msg: "Not authorized",
+      });
+    }
+
+    // User can cancel only a pending order
+    if (order.status !== "pending") {
+      return res.status(400).json({
+        msg: "Only pending orders can be cancelled",
+      });
+    }
+
+    // Shared cancellation service handles:
+    // Stripe refund
+    // Stock restoration
+    // soldCount adjustment
+    // paymentStatus
+    // cancelledAt
+    const cancelledOrder = await orderService.cancelOrder(req.params.id);
+
+    // Send cancellation email
+    try {
+      const html = getEmailTemplate({
+        title: "Order Cancelled",
+        message:
+          "Your order has been successfully cancelled as per your request.",
+        orderId: cancelledOrder._id,
+        items: cancelledOrder.items,
+        subtotal: Number(cancelledOrder.subtotal),
+        discount: Number(cancelledOrder.discount),
+        total: Number(cancelledOrder.totalAmount),
+        status: "cancelled",
+      });
+
+      await sendEmail({
+        to: cancelledOrder.userEmail,
+        subject: `Order #${cancelledOrder._id} Cancelled`,
+        html,
+      });
+    } catch (emailError) {
+      console.error("[Cancellation Email]", emailError);
+    }
+
+    return res.json(cancelledOrder);
+  } catch (err) {
+    console.error("[User Order Cancellation]", err);
+
+    return res.status(err.statusCode || 500).json({
+      msg: err.message || "Server error",
+    });
+  }
 });
 
 module.exports = router;
