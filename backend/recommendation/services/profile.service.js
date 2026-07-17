@@ -153,6 +153,22 @@ class ProfileService {
       user: userId,
     });
   }
+
+  /**
+   * Returns top favourite categories
+   */
+  async getTopCategories(userId, limit = 3) {
+    const profile = await UserPreference.findOne({
+      user: userId,
+    }).lean();
+
+    if (!profile) return [];
+
+    return profile.favoriteCategories
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((item) => item.category);
+  }
 }
 
 module.exports = new ProfileService();

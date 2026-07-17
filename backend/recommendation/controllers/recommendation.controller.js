@@ -1,81 +1,139 @@
 const recommendationService = require("../services/recommendation.service");
+const semanticSearchService = require("../services/semanticSearch.service");
 
 class RecommendationController {
+  /**
+   * AI Semantic Search
+   * GET /api/recommendation/search?q=...
+   */
+  async search(req, res) {
+    try {
+      const { q, category, inStockOnly, limit } = req.query;
+
+      if (!q) {
+        return res.status(400).json({
+          success: false,
+          message: "Search query is required.",
+        });
+      }
+
+      const books = await semanticSearchService.search(q, {
+        category: category || null,
+        inStockOnly: inStockOnly === "true",
+        limit: Number(limit) || 20,
+      });
+
+      return res.status(200).json({
+        success: true,
+        total: books.length,
+        books,
+      });
+    } catch (err) {
+      console.error("[Semantic Search]", err);
+
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+
+  /**
+   * Book Recommendations
+   * GET /api/recommendation/book/:bookId
+   */
   async recommendBook(req, res) {
     try {
       const userId = req.user ? req.user.id : null;
 
-      const result = await recommendationService.recommendByBook(
+      const recommendations = await recommendationService.recommendByBook(
         req.params.bookId,
         userId,
       );
 
-      res.json(result);
+      return res.status(200).json({
+        success: true,
+        total: recommendations.length,
+        recommendations,
+      });
     } catch (err) {
-      console.error(err);
+      console.error("[Recommendation]", err);
 
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         message: err.message,
       });
     }
   }
 
-  async search(req, res) {
-    try {
-      const result = await recommendationService.recommendByText(req.query.q);
-
-      res.json(result);
-    } catch (err) {
-      console.error(err);
-
-      res.status(500).json({
-        message: err.message,
-      });
-    }
-  }
-
+  /**
+   * Popular Books
+   * GET /api/recommendation/popular
+   */
   async popular(req, res) {
     try {
-      const result = await recommendationService.recommendPopular();
+      const books = await recommendationService.recommendPopular();
 
-      res.json(result);
+      return res.status(200).json({
+        success: true,
+        total: books.length,
+        books,
+      });
     } catch (err) {
-      console.error(err);
+      console.error("[Popular]", err);
 
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         message: err.message,
       });
     }
   }
 
+  /**
+   * Frequently Bought Together
+   * GET /api/recommendation/book/:bookId/frequently-bought
+   */
   async frequentlyBought(req, res) {
     try {
-      const result =
+      const books =
         await recommendationService.recommendFrequentlyBoughtTogether(
           req.params.bookId,
         );
 
-      res.json(result);
+      return res.status(200).json({
+        success: true,
+        total: books.length,
+        books,
+      });
     } catch (err) {
-      console.error(err);
+      console.error("[Frequently Bought Together]", err);
 
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         message: err.message,
       });
     }
   }
 
+  /**
+   * Home Recommendations
+   * GET /api/recommendation/home
+   */
   async home(req, res) {
     try {
       const userId = req.user ? req.user.id : null;
 
       const result = await recommendationService.getHomeRecommendations(userId);
 
-      res.json(result);
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
     } catch (err) {
-      console.error(err);
+      console.error("[Home Recommendation]", err);
 
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         message: err.message,
       });
     }

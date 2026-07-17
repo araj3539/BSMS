@@ -1,7 +1,6 @@
 const RecommendationCache = require("../models/RecommendationCache");
 const Book = require("../../models/Book");
 
-
 const semantic = require("../algorithms/semantic");
 const popularity = require("../algorithms/popularity");
 const collaborative = require("../algorithms/collaborative");
@@ -14,6 +13,8 @@ const profileService = require("./profile.service");
 class RecommendationService {
   constructor() {
     this.CACHE_DURATION = 24 * 60 * 60 * 1000;
+
+    this.ALGORITHM_VERSION = 1;
   }
 
   /**
@@ -29,12 +30,12 @@ class RecommendationService {
 
       sourceBook: bookId,
 
+      algorithmVersion: this.ALGORITHM_VERSION,
+
       expiresAt: {
         $gt: new Date(),
       },
-    })
-
-      .populate("recommendations.book");
+    }).populate("recommendations.book");
 
     if (cached) {
       console.log("Recommendation Cache HIT");
@@ -45,23 +46,60 @@ class RecommendationService {
     console.log("Recommendation Cache MISS");
 
     //--------------------------------------------------
-    // 2. Generate Recommendations
+    // 2. Generate Recommendations (Parallel)
     //--------------------------------------------------
 
-    const semanticResults = await semantic.recommend(bookId);
+    const tasks = [
+      semantic.recommend(bookId),
+      popularity.recommend(),
+      userId ? collaborative.recommend(userId) : Promise.resolve([]),
+      userId ? profileService.getProfile(userId) : Promise.resolve(null),
+    ];
 
-    const popularityResults = await popularity.recommend();
+    const [
+      semanticResult,
+      popularityResult,
+      collaborativeResult,
+      profileResult,
+    ] = await Promise.allSettled(tasks);
 
-    let collaborativeResults = [];
+    const semanticResults =
+      semanticResult.status === "fulfilled" ? semanticResult.value : [];
 
-    if (userId) {
-      collaborativeResults = await collaborative.recommend(userId);
+    if (semanticResult.status === "rejected") {
+      console.error(
+        "[Recommendation] Semantic:",
+        semanticResult.reason?.message || semanticResult.reason,
+      );
     }
 
-    let profile = null;
+    const popularityResults =
+      popularityResult.status === "fulfilled" ? popularityResult.value : [];
 
-    if (userId) {
-      profile = await profileService.getProfile(userId);
+    if (popularityResult.status === "rejected") {
+      console.error(
+        "[Recommendation] Popularity:",
+        popularityResult.reason.message,
+      );
+    }
+
+    const collaborativeResults =
+      collaborativeResult.status === "fulfilled"
+        ? collaborativeResult.value
+        : [];
+
+    if (collaborativeResult.status === "rejected") {
+      console.error(
+        "[Recommendation] Collaborative:",
+        collaborativeResult.reason.message,
+      );
+    }
+
+    const profile =
+      profileResult.status === "fulfilled" ? profileResult.value : null;
+
+    if (profileResult.status === "rejected") {
+      console.error("[Recommendation] Profile:", profileResult.reason.message);
     }
     //--------------------------------------------------
     // 3. Hybrid Merge
@@ -92,45 +130,47 @@ class RecommendationService {
     //--------------------------------------------------
     // 6. Save Cache
     //--------------------------------------------------
+    try {
+      await RecommendationCache.findOneAndUpdate(
+        {
+          user: userId,
 
-    await RecommendationCache.findOneAndUpdate(
-      {
-        user: userId,
+          sourceBook: bookId,
+        },
 
-        sourceBook: bookId,
-      },
+        {
+          user: userId,
 
-      {
-        user: userId,
+          sourceBook: bookId,
 
-        sourceBook: bookId,
+          recommendations: explained.map((item) => ({
+            book: item.book._id,
 
-        recommendations: explained.map((item) => ({
-          book: item.book._id,
+            semanticScore: item.semanticScore,
 
-          semanticScore: item.semanticScore,
+            collaborativeScore: item.collaborativeScore,
 
-          collaborativeScore: item.collaborativeScore,
+            popularityScore: item.popularityScore,
 
-          popularityScore: item.popularityScore,
+            finalScore: item.finalScore,
 
-          finalScore: item.finalScore,
+            reasons: item.reasons,
+          })),
 
-          reasons: item.reasons,
-        })),
+          algorithmVersion: this.ALGORITHM_VERSION,
 
-        algorithmVersion: 1,
+          expiresAt: new Date(Date.now() + this.CACHE_DURATION),
+        },
 
-        expiresAt: new Date(Date.now() + this.CACHE_DURATION),
-      },
+        {
+          upsert: true,
 
-      {
-        upsert: true,
-
-        new: true,
-      },
-    );
-
+          new: true,
+        },
+      );
+    } catch (err) {
+      console.error("[Recommendation] Cache:", err.message);
+    }
     return explained;
   }
 
@@ -146,34 +186,73 @@ class RecommendationService {
   }
 
   async getHomeRecommendations(userId = null) {
-    const popular = await popularity.recommend({ limit: 10 });
-
+    let popular = [];
     let recommended = [];
+    let trending = [];
+    let newArrivals = [];
+
+    //--------------------------------------------------
+    // Popular Books
+    //--------------------------------------------------
+
+    try {
+      popular = await popularity.recommend({
+        limit: 10,
+      });
+    } catch (err) {
+      console.error("[Home] Popular:", err.message);
+    }
+
+    //--------------------------------------------------
+    // Personalized Recommendations
+    //--------------------------------------------------
 
     if (userId) {
-      const profile = await profileService.getProfile(userId);
+      try {
+        const profile = await profileService.getProfile(userId);
 
-      if (profile && profile.favoriteCategories.length > 0) {
-        const favouriteCategory = profile.favoriteCategories[0].category;
+        if (profile && profile.favoriteCategories.length > 0) {
+          const favouriteCategory = profile.favoriteCategories[0].category;
 
-        recommended = await popularity.recommend({
-          limit: 10,
-        });
-
-        recommended = recommended.filter((item) =>
-          item.book.categories?.includes(favouriteCategory),
-        );
+          recommended = popular.filter((item) =>
+            item.book.categories?.includes(favouriteCategory),
+          );
+        }
+      } catch (err) {
+        console.error("[Home] Personalized:", err.message);
       }
     }
 
-    const newArrivals = await Book.find().sort({ createdAt: -1 }).limit(10);
+    //--------------------------------------------------
+    // New Arrivals
+    //--------------------------------------------------
 
-    const trending = await Book.find()
-      .sort({
-        soldCount: -1,
-        rating: -1,
-      })
-      .limit(10);
+    try {
+      newArrivals = await Book.find()
+        .sort({
+          createdAt: -1,
+        })
+        .limit(10)
+        .lean();
+    } catch (err) {
+      console.error("[Home] New Arrivals:", err.message);
+    }
+
+    //--------------------------------------------------
+    // Trending
+    //--------------------------------------------------
+
+    try {
+      trending = await Book.find()
+        .sort({
+          soldCount: -1,
+          rating: -1,
+        })
+        .limit(10)
+        .lean();
+    } catch (err) {
+      console.error("[Home] Trending:", err.message);
+    }
 
     return {
       continueReading: [],

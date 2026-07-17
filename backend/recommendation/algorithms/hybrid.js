@@ -6,6 +6,14 @@ class HybridRecommendation {
       popularity: 0.1,
       profile: 0.05,
     };
+
+    this.MAX_PROFILE_SCORE = 100;
+  }
+
+  normalize(score) {
+    if (Number.isNaN(score)) return 0;
+
+    return Math.max(0, Math.min(score, 1));
   }
 
   merge({
@@ -16,17 +24,19 @@ class HybridRecommendation {
   }) {
     const map = new Map();
 
-    //-----------------------------------
+    //------------------------------------
     // Semantic
-    //-----------------------------------
+    //------------------------------------
 
     semantic.forEach((item) => {
       const id = item.book._id.toString();
 
+      const semanticScore = this.normalize(item.semanticScore || 0);
+
       map.set(id, {
         book: item.book,
 
-        semanticScore: item.semanticScore || 0,
+        semanticScore,
 
         collaborativeScore: 0,
 
@@ -34,13 +44,13 @@ class HybridRecommendation {
 
         profileScore: 0,
 
-        finalScore: (item.semanticScore || 0) * this.weights.semantic,
+        finalScore: semanticScore * this.weights.semantic,
       });
     });
 
-    //-----------------------------------
+    //------------------------------------
     // Popularity
-    //-----------------------------------
+    //------------------------------------
 
     popularity.forEach((item) => {
       const id = item.book._id.toString();
@@ -49,15 +59,16 @@ class HybridRecommendation {
 
       const recommendation = map.get(id);
 
-      recommendation.popularityScore = item.popularityScore;
+      const score = this.normalize(item.popularityScore || 0);
 
-      recommendation.finalScore +=
-        item.popularityScore * this.weights.popularity;
+      recommendation.popularityScore = score;
+
+      recommendation.finalScore += score * this.weights.popularity;
     });
 
-    //-----------------------------------
+    //------------------------------------
     // Collaborative
-    //-----------------------------------
+    //------------------------------------
 
     collaborative.forEach((item) => {
       const id = item.book._id.toString();
@@ -66,22 +77,21 @@ class HybridRecommendation {
 
       const recommendation = map.get(id);
 
-      recommendation.collaborativeScore = item.collaborativeScore;
+      const score = this.normalize(item.collaborativeScore || 0);
 
-      recommendation.finalScore +=
-        item.collaborativeScore * this.weights.collaborative;
+      recommendation.collaborativeScore = score;
+
+      recommendation.finalScore += score * this.weights.collaborative;
     });
 
-    //-----------------------------------
-    // Profile Boost
-    //-----------------------------------
+    //------------------------------------
+    // Profile
+    //------------------------------------
 
     if (profile) {
       map.forEach((recommendation) => {
         let boost = 0;
 
-        //--------------------------------
-        // Categories
         //--------------------------------
 
         if (recommendation.book.categories && profile.favoriteCategories) {
@@ -90,14 +100,10 @@ class HybridRecommendation {
               (c) => c.category === category,
             );
 
-            if (match) {
-              boost += match.score;
-            }
+            if (match) boost += match.score;
           });
         }
 
-        //--------------------------------
-        // Authors
         //--------------------------------
 
         if (recommendation.book.authors && profile.favoriteAuthors) {
@@ -106,15 +112,17 @@ class HybridRecommendation {
               (a) => a.author === author,
             );
 
-            if (match) {
-              boost += match.score;
-            }
+            if (match) boost += match.score;
           });
         }
 
-        recommendation.profileScore = boost;
+        const normalizedProfile = Math.min(boost / this.MAX_PROFILE_SCORE, 1);
 
-        recommendation.finalScore += boost * this.weights.profile;
+        recommendation.profileScore = normalizedProfile;
+
+        recommendation.finalScore += normalizedProfile * this.weights.profile;
+
+        recommendation.finalScore = this.normalize(recommendation.finalScore);
       });
     }
 

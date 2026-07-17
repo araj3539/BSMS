@@ -39,6 +39,11 @@ const RecommendationCacheSchema = new mongoose.Schema(
           default: 0,
         },
 
+        profileScore: {
+          type: Number,
+          default: 0,
+        },
+
         finalScore: {
           type: Number,
           required: true,
@@ -53,7 +58,9 @@ const RecommendationCacheSchema = new mongoose.Schema(
 
     algorithmVersion: {
       type: Number,
+      required: true,
       default: 1,
+      index: true,
     },
 
     expiresAt: {
@@ -67,17 +74,19 @@ const RecommendationCacheSchema = new mongoose.Schema(
   },
 );
 
-/**
- * Automatically delete expired cache entries.
- */
-RecommendationCacheSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+RecommendationCacheSchema.index(
+  {
+    expiresAt: 1,
+  },
+  {
+    expireAfterSeconds: 0,
+  },
+);
 
-/**
- * Fast lookup.
- */
 RecommendationCacheSchema.index({
   user: 1,
   sourceBook: 1,
+  algorithmVersion: 1,
 });
 
 module.exports = mongoose.model(

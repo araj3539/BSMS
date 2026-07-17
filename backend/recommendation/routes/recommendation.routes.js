@@ -6,18 +6,29 @@ const optionalAuth = require("../../middleware/optionalAuth");
 
 const controller = require("../controllers/recommendation.controller");
 
-router.get("/book/:bookId", controller.recommendBook);
-
+/**
+ * AI Semantic Search
+ */
 router.get("/search", controller.search);
 
+/**
+ * Popular Books
+ */
 router.get("/popular", controller.popular);
 
-router.get(
-  "/book/:bookId/frequently-bought",
+/**
+ * Home Recommendations
+ */
+router.get("/home", optionalAuth, controller.home);
 
-  controller.frequentlyBought,
-);
+/**
+ * Frequently Bought Together
+ */
+router.get("/book/:bookId/frequently-bought", controller.frequentlyBought);
 
-router.get("/home", controller.home);
+/**
+ * Book Recommendations
+ */
+router.get("/book/:bookId", optionalAuth, controller.recommendBook);
 
 module.exports = router;
