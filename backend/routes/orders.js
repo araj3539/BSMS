@@ -425,6 +425,10 @@ router.put(
     try {
       const { status } = req.body;
 
+      //------------------------------------------------
+      // Basic Status Validation
+      //------------------------------------------------
+
       const allowed = [
         "pending",
         "processing",
@@ -454,22 +458,36 @@ router.put(
       const previousStatus = order.status;
 
       //------------------------------------------------
-      // Prevent Updating Cancelled Orders
+      // Valid Order Status Transitions
       //------------------------------------------------
 
-      if (previousStatus === "cancelled") {
+      const validTransitions = {
+        // Stripe webhook handles:
+        // payment_pending -> pending
+        payment_pending: ["cancelled"],
+
+        pending: ["processing", "cancelled"],
+
+        processing: ["shipped", "cancelled"],
+
+        shipped: ["delivered"],
+
+        delivered: [],
+
+        cancelled: [],
+      };
+
+      const allowedNextStatuses = validTransitions[previousStatus] || [];
+
+      //------------------------------------------------
+      // Validate Status Transition
+      //------------------------------------------------
+
+      if (!allowedNextStatuses.includes(status)) {
         return res.status(400).json({
-          msg: "Cancelled order cannot be updated",
-        });
-      }
-
-      //------------------------------------------------
-      // Prevent Updating Delivered Orders
-      //------------------------------------------------
-
-      if (previousStatus === "delivered") {
-        return res.status(400).json({
-          msg: "Delivered order cannot be updated",
+          msg:
+            `Cannot change order status from ` +
+            `${previousStatus} to ${status}`,
         });
       }
 
@@ -478,8 +496,8 @@ router.put(
       //------------------------------------------------
 
       if (status === "cancelled") {
-        // Restore stock only if payment was completed
-        // because stock is deducted after successful payment.
+        // Stock is deducted only after successful payment.
+        // Therefore restore stock only for paid orders.
 
         if (order.paymentStatus === "paid") {
           const bulkOps = order.items.map((item) => ({
@@ -497,7 +515,9 @@ router.put(
             },
           }));
 
-          await Book.bulkWrite(bulkOps);
+          if (bulkOps.length > 0) {
+            await Book.bulkWrite(bulkOps);
+          }
         }
 
         order.status = "cancelled";
@@ -565,12 +585,13 @@ router.put(
             html,
           });
         } catch (emailError) {
-          // Order update should not fail
-          // just because email delivery failed.
-
           console.error("[Order Status Email]", emailError);
         }
       }
+
+      //------------------------------------------------
+      // Response
+      //------------------------------------------------
 
       return res.json(order);
     } catch (err) {
@@ -601,7 +622,7 @@ router.put("/:id/cancel", auth, async (req, res) => {
 
     order.status = "cancelled";
     order.cancelledAt = new Date();
-    
+
     await order.save();
 
     const bulkOps = order.items.map((item) => ({
