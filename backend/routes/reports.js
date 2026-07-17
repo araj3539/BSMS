@@ -90,10 +90,13 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const last7Days = new Date();
+    last7Days.setDate(last7Days.getDate() - 6);
 
     const [
       totalRevenue,
       todayRevenue,
+      weeklyRevenue,
       totalOrders,
       pendingOrders,
       totalBooks,
@@ -141,6 +144,41 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         },
       ]),
 
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: "paid",
+            status: {
+              $ne: "cancelled",
+            },
+            paidAt: {
+              $gte: last7Days,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$paidAt",
+              },
+            },
+            revenue: {
+              $sum: "$totalAmount",
+            },
+            orders: {
+              $sum: 1,
+            },
+          },
+        },
+        {
+          $sort: {
+            _id: 1,
+          },
+        },
+      ]),
+
       Order.countDocuments(),
 
       Order.countDocuments({
@@ -167,7 +205,10 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         .limit(10)
         .select("title stock price"),
 
-      Book.find().sort({ soldCount: -1 }).limit(10).select("title author soldCount"),
+      Book.find()
+        .sort({ soldCount: -1 })
+        .limit(10)
+        .select("title author soldCount"),
     ]);
 
     res.json({
@@ -184,6 +225,8 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
 
         totalCustomers,
       },
+
+      weeklyRevenue,
 
       recentOrders,
 
