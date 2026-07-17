@@ -333,6 +333,60 @@ router.post("/webhook", async (req, res) => {
     }
   }
 
+  if (event.type === "payment_intent.payment_failed") {
+    const paymentIntent = event.data.object;
+    const orderId = paymentIntent.metadata?.orderId;
+
+    if (orderId) {
+      try {
+        const order = await Order.findById(orderId);
+
+        if (
+          order &&
+          order.status === "payment_pending" &&
+          order.paymentStatus !== "paid"
+        ) {
+          order.paymentStatus = "failed";
+
+          await order.save();
+
+          console.log(`[Stripe Webhook] Payment failed for Order ${orderId}`);
+        }
+      } catch (err) {
+        console.error("[Stripe Payment Failed Handler]", err);
+      }
+    }
+  }
+
+  if (event.type === "payment_intent.canceled") {
+    const paymentIntent = event.data.object;
+    const orderId = paymentIntent.metadata?.orderId;
+
+    if (orderId) {
+      try {
+        const order = await Order.findById(orderId);
+
+        if (
+          order &&
+          order.status === "payment_pending" &&
+          order.paymentStatus !== "paid"
+        ) {
+          order.status = "cancelled";
+          order.paymentStatus = "failed";
+          order.cancelledAt = new Date();
+
+          await order.save();
+
+          console.log(
+            `[Stripe Webhook] Payment cancelled for Order ${orderId}`,
+          );
+        }
+      } catch (err) {
+        console.error("[Stripe Payment Cancelled Handler]", err);
+      }
+    }
+  }
+
   return res.status(200).json({
     received: true,
   });
