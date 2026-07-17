@@ -12,13 +12,16 @@ router.get("/sales-by-day", auth, isAdmin, async (req, res) => {
   since.setDate(since.getDate() - days);
   const agg = await Order.aggregate([
     {
-  $match: {
-    paymentStatus: "paid",
-    paidAt: {
-      $gte: since,
+      $match: {
+        paymentStatus: "paid",
+        status: {
+          $ne: "cancelled",
+        },
+        paidAt: {
+          $gte: since,
+        },
+      },
     },
-  },
-},
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -38,7 +41,10 @@ router.get("/category-sales", auth, isAdmin, async (req, res) => {
       // 1. Filter: Only consider paid/completed orders
       {
         $match: {
-          status: { $in: ["pending", "processing", "shipped", "delivered"] },
+          paymentStatus: "paid",
+          status: {
+            $ne: "cancelled",
+          },
         },
       },
 
@@ -101,6 +107,9 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         {
           $match: {
             paymentStatus: "paid",
+            status: {
+              $ne: "cancelled",
+            },
           },
         },
         {
@@ -116,7 +125,12 @@ router.get("/dashboard", auth, isAdmin, async (req, res) => {
         {
           $match: {
             paymentStatus: "paid",
-            paidAt: { $gte: today },
+            status: {
+              $ne: "cancelled",
+            },
+            paidAt: {
+              $gte: today,
+            },
           },
         },
         {
