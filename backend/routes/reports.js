@@ -18,7 +18,7 @@ router.get("/sales-by-day", auth, isAdmin, async (req, res) => {
       $gte: since,
     },
   },
-}
+},
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
