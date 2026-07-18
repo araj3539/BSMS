@@ -1,5 +1,6 @@
 const recommendationService = require("../services/recommendation.service");
 const semanticSearchService = require("../services/semanticSearch.service");
+const interactionService = require("../services/interaction.service");
 
 class RecommendationController {
   /**
@@ -37,6 +38,42 @@ class RecommendationController {
       });
     }
   }
+
+  /**
+ * Track User Interaction
+ * POST /api/recommendation/track
+ */
+async track(req, res) {
+  try {
+    const { bookId, action, metadata = {} } = req.body;
+
+    if (!bookId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: "bookId and action are required.",
+      });
+    }
+
+    await interactionService.log({
+      userId: req.user.id,
+      bookId,
+      action,
+      metadata,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Interaction recorded successfully.",
+    });
+  } catch (err) {
+    console.error("[Track Interaction]", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
 
   /**
    * Book Recommendations

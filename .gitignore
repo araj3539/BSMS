@@ -138,4 +138,3 @@ dist
 
 #some unnessesary files to remove
 swap.js
-backend/routes/reports.js
