@@ -11,6 +11,7 @@ const router = express.Router();
 const { sendEmail, getEmailTemplate } = require("../utils/email");
 const { generateInvoiceBuffer, streamInvoice } = require("../utils/invoice");
 const orderService = require("../services/order.service");
+const interactionService = require("../recommendation/services/interaction.service");
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const round = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
@@ -241,6 +242,27 @@ router.post("/webhook", async (req, res) => {
           order.paymentStatus = "paid";
 
           await order.save();
+
+          //------------------------------------------------
+          // Log Purchase Interactions
+          //------------------------------------------------
+
+          for (const item of order.items) {
+            await interactionService.log({
+              userId: order.userId,
+              bookId: item.bookId,
+              action: "PURCHASE",
+              metadata: {
+                title: item.title,
+                authors: item.authors || [],
+                categories: item.categories || [],
+                quantity: item.qty,
+                price: item.price,
+                orderId: order._id,
+                paymentId: paymentIntent.id,
+              },
+            });
+          }
 
           return res.status(200).json({
             received: true,

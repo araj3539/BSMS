@@ -12,6 +12,7 @@ import {
 import SkeletonBookCard from "../components/SkeletonBookCard";
 import { useDebounce } from "../hooks/useDebounce";
 import CustomSelect from "../components/CustomSelect";
+import { trackInteraction } from "../services/interaction.service";
 
 // --- COMPONENTS ---
 
@@ -23,7 +24,9 @@ function TrustBadge({ icon, title, desc }) {
       </div>
       <div className="text-left">
         <h4 className="font-bold text-slate-800 text-xs md:text-sm">{title}</h4>
-        <p className="text-[10px] md:text-xs text-slate-500 font-medium">{desc}</p>
+        <p className="text-[10px] md:text-xs text-slate-500 font-medium">
+          {desc}
+        </p>
       </div>
     </div>
   );
@@ -79,10 +82,13 @@ function Newsletter() {
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 500], [0, 200]); 
+  const y1 = useTransform(scrollY, [0, 500], [0, 200]);
 
   // --- NEW: Track first render to prevent auto-scroll on landing ---
   const isFirstRender = useRef(true);
+  const lastTrackedSearch = useRef("");
+  const searchTrackingTimeout = useRef(null);
+  const activeSearchQuery = useRef("");
 
   const [filters, setFilters] = useState({
     minPrice: searchParams.get("minPrice") || "",
@@ -102,7 +108,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const QUICK_CATEGORIES = [
-    "Fiction", "Sci-Fi", "Romance", "Mystery", "Business", "Self-Help",
+    "Fiction",
+    "Sci-Fi",
+    "Romance",
+    "Mystery",
+    "Business",
+    "Self-Help",
   ];
 
   useEffect(() => {
@@ -120,28 +131,81 @@ export default function Home() {
     // --- FIX START: Logic to handle scroll ---
     // If it's NOT the first load, OR if we are on a deep page (like page 2 link), scroll to grid.
     if (!isFirstRender.current) {
-        document.getElementById("book-grid")?.scrollIntoView({ behavior: "smooth" });
+      document
+        .getElementById("book-grid")
+        ?.scrollIntoView({ behavior: "smooth" });
     }
-    
+
     isFirstRender.current = false;
     // --- FIX END ---
-
   }, [page, limit, debouncedQ, filters, sortBy]);
 
-  async function fetchBooks() {
-    setLoading(true);
-    try {
-      const params = { page, limit, q: debouncedQ, ...filters, sort: sortBy };
-      const res = await api.get("/books", { params });
-      setBooks(res.data.books || []);
-      setTotal(res.data.total || 0);
-    } catch (err) {
-      console.error(err);
-      setBooks([]);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+  const query = debouncedQ.trim();
+
+  // Clear previous timer
+  if (searchTrackingTimeout.current) {
+    clearTimeout(searchTrackingTimeout.current);
   }
+
+  // Reset when search box is cleared
+  if (!query) {
+    lastTrackedSearch.current = "";
+    return;
+  }
+
+  searchTrackingTimeout.current = setTimeout(() => {
+    if (query === lastTrackedSearch.current) return;
+
+    lastTrackedSearch.current = query;
+    activeSearchQuery.current = query;
+    trackInteraction(null, "SEARCH", {
+      query,
+      resultCount: total,
+
+      filters: {
+        category: filters.category || null,
+        minPrice: filters.minPrice || null,
+        maxPrice: filters.maxPrice || null,
+        minRating: filters.minRating || null,
+      },
+
+      sort: sortBy,
+      page,
+      source: "home_search",
+    });
+  }, 2000);
+
+  return () => {
+    if (searchTrackingTimeout.current) {
+      clearTimeout(searchTrackingTimeout.current);
+    }
+  };
+}, [debouncedQ, total, filters, sortBy]);
+
+  async function fetchBooks() {
+  setLoading(true);
+
+  try {
+    const params = {
+      page,
+      limit,
+      q: debouncedQ,
+      ...filters,
+      sort: sortBy,
+    };
+
+    const res = await api.get("/books", { params });
+
+    setBooks(res.data.books || []);
+    setTotal(res.data.total || 0);
+  } catch (err) {
+    console.error(err);
+    setBooks([]);
+  } finally {
+    setLoading(false);
+  }
+}
 
   function handleFilter(newFilters) {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -199,12 +263,21 @@ export default function Home() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    document.getElementById("book-grid").scrollIntoView({ behavior: "smooth" });
+                    document
+                      .getElementById("book-grid")
+                      .scrollIntoView({ behavior: "smooth" });
                   }}
                   className="relative flex items-center bg-white rounded-xl p-2 shadow-xl ring-1 ring-slate-200"
                 >
                   <div className="pl-3 md:pl-4 text-slate-400">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
                       <circle cx="11" cy="11" r="8"></circle>
                       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
@@ -226,15 +299,15 @@ export default function Home() {
 
               {/* Trust Badges */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 opacity-90 px-4 md:px-0 max-w-md mx-auto lg:mx-0">
-                <TrustBadge 
-                  icon="🚚" 
-                  title="Free Shipping" 
-                  desc="Orders over ₹500" 
+                <TrustBadge
+                  icon="🚚"
+                  title="Free Shipping"
+                  desc="Orders over ₹500"
                 />
-                <TrustBadge 
-                  icon="🛡️" 
-                  title="Secure Payment" 
-                  desc="100% Protected" 
+                <TrustBadge
+                  icon="🛡️"
+                  title="Secure Payment"
+                  desc="100% Protected"
                 />
               </div>
             </motion.div>
@@ -250,28 +323,47 @@ export default function Home() {
               <div className="relative w-[500px] h-[600px] mx-auto perspective-1000">
                 <motion.div
                   animate={{ y: [0, -20, 0], rotate: [0, 2, 0] }}
-                  transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 6,
+                    ease: "easeInOut",
+                  }}
                   className="absolute top-10 left-10 w-64 h-80 bg-slate-800 rounded-r-2xl rounded-l-md shadow-2xl border-l-8 border-slate-700 z-20 flex items-center justify-center overflow-hidden transform rotate-[-6deg]"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900"></div>
                   <div className="relative text-center p-6 border-2 border-white/10 m-4 h-[90%] rounded-lg flex flex-col justify-center">
-                    <div className="text-xs text-indigo-400 font-bold tracking-[0.2em] mb-2 uppercase">Bestseller</div>
-                    <h3 className="text-3xl font-serif text-white font-bold mb-2">The Art of <br /> Code</h3>
-                    <p className="text-slate-400 text-xs italic">Mastering the craft</p>
+                    <div className="text-xs text-indigo-400 font-bold tracking-[0.2em] mb-2 uppercase">
+                      Bestseller
+                    </div>
+                    <h3 className="text-3xl font-serif text-white font-bold mb-2">
+                      The Art of <br /> Code
+                    </h3>
+                    <p className="text-slate-400 text-xs italic">
+                      Mastering the craft
+                    </p>
                   </div>
                 </motion.div>
 
                 <motion.div
                   animate={{ y: [0, 30, 0], rotate: [0, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 7, ease: "easeInOut", delay: 1 }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 7,
+                    ease: "easeInOut",
+                    delay: 1,
+                  }}
                   className="absolute top-24 right-10 w-60 h-72 bg-white rounded-r-2xl rounded-l-md shadow-xl border-l-4 border-slate-200 z-10 flex items-center justify-center overflow-hidden transform rotate-[12deg]"
                 >
                   <div className="text-center p-4">
-                    <div className="w-16 h-16 bg-rose-100 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl">🌿</div>
-                    <h3 className="text-xl font-serif text-slate-800 font-bold">Modern <br /> Living</h3>
+                    <div className="w-16 h-16 bg-rose-100 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl">
+                      🌿
+                    </div>
+                    <h3 className="text-xl font-serif text-slate-800 font-bold">
+                      Modern <br /> Living
+                    </h3>
                   </div>
                 </motion.div>
-                
+
                 {/* Decorative Elements */}
                 <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-yellow-400 rounded-full blur-3xl opacity-20"></div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-slate-900/5 rounded-full"></div>
@@ -297,7 +389,9 @@ export default function Home() {
               <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest mb-1">
                 Weekly Deal
               </p>
-              <h3 className="text-2xl font-serif font-bold mb-2">Summer Reading</h3>
+              <h3 className="text-2xl font-serif font-bold mb-2">
+                Summer Reading
+              </h3>
               <p className="text-sm text-indigo-100 mb-4">
                 Get up to 30% off on all fiction bestsellers.
               </p>
@@ -331,10 +425,16 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 md:mb-8 gap-4 border-b border-slate-200 pb-4">
             <div>
               <h2 className="text-xl md:text-2xl font-serif font-bold text-slate-900">
-                {q ? `Results for "${q}"` : filters.category ? `${filters.category} Books` : "Popular Books"}
+                {q
+                  ? `Results for "${q}"`
+                  : filters.category
+                    ? `${filters.category} Books`
+                    : "Popular Books"}
               </h2>
               <p className="text-xs md:text-sm text-slate-500 mt-1 font-medium">
-                Showing <span className="text-slate-900 font-bold">{books.length}</span> of {total} results
+                Showing{" "}
+                <span className="text-slate-900 font-bold">{books.length}</span>{" "}
+                of {total} results
               </p>
             </div>
 
@@ -369,9 +469,12 @@ export default function Home() {
               {books.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
                   <div className="text-6xl mb-4 opacity-30">📚</div>
-                  <h3 className="text-xl font-bold text-slate-900">No books found</h3>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    No books found
+                  </h3>
                   <p className="text-slate-500 mt-2 mb-6 text-center max-w-xs px-4">
-                    We couldn't find matches for your search. Try checking your spelling or clear filters.
+                    We couldn't find matches for your search. Try checking your
+                    spelling or clear filters.
                   </p>
                   <button
                     onClick={() => {

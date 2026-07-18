@@ -40,40 +40,47 @@ class RecommendationController {
   }
 
   /**
- * Track User Interaction
- * POST /api/recommendation/track
- */
-async track(req, res) {
-  try {
-    const { bookId, action, metadata = {} } = req.body;
+   * Track User Interaction
+   * POST /api/recommendation/track
+   */
+  async track(req, res) {
+    try {
+      const { bookId, action, metadata = {} } = req.body;
 
-    if (!bookId || !action) {
-      return res.status(400).json({
+      if (!action) {
+        return res.status(400).json({
+          success: false,
+          message: "Action is required.",
+        });
+      }
+
+      if (action !== "SEARCH" && !bookId) {
+        return res.status(400).json({
+          success: false,
+          message: "bookId is required for this action.",
+        });
+      }
+
+      await interactionService.log({
+        userId: req.user.id,
+        bookId,
+        action,
+        metadata,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Interaction recorded successfully.",
+      });
+    } catch (err) {
+      console.error("[Track Interaction]", err);
+
+      return res.status(500).json({
         success: false,
-        message: "bookId and action are required.",
+        message: err.message,
       });
     }
-
-    await interactionService.log({
-      userId: req.user.id,
-      bookId,
-      action,
-      metadata,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Interaction recorded successfully.",
-    });
-  } catch (err) {
-    console.error("[Track Interaction]", err);
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
   }
-}
 
   /**
    * Book Recommendations

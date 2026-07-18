@@ -6,19 +6,23 @@ class InteractionService {
    * Record an interaction
    */
   async log({ userId, bookId, action, metadata = {} }) {
-    if (!userId || !bookId) return null;
+    if (!userId) return null;
+
+    if (action !== "SEARCH" && !bookId) {
+      return null;
+    }
 
     const interaction = await UserInteraction.create({
       user: userId,
-      book: bookId,
+      book: bookId || null,
       action,
       metadata,
     });
 
     // Run profile update in background
-    profileWorker.process(userId).catch(err => {
-    console.error("[ProfileWorker]", err);
-});
+    profileWorker.process(userId).catch((err) => {
+      console.error("[ProfileWorker]", err);
+    });
 
     return interaction;
   }
