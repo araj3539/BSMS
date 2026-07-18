@@ -200,7 +200,7 @@ export default function AdminDashboard() {
                         {b.title}
                       </p>
                       <p className="text-xs text-slate-500 font-medium">
-                        {b.author}
+                        {b.authors?.join(", ")}
                       </p>
                     </div>
                   </div>

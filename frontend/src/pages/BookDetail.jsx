@@ -34,6 +34,8 @@ export default function BookDetail() {
     trackInteraction(book._id, "VIEW", {
       source: "book_detail",
       title: book.title,
+      authors: book.authors,
+      categories: book.categories,
     });
   }, [book]);
 
@@ -81,6 +83,8 @@ export default function BookDetail() {
       await trackInteraction(book._id, "ADD_CART", {
         source: "book_detail",
         title: book.title,
+        authors: book.authors,
+        categories: book.categories,
       });
     } catch (err) {
       console.error(err);
@@ -95,26 +99,9 @@ export default function BookDetail() {
     setQty(Math.max(1, Math.min(book.stock, Math.floor(val))));
   }
 
-  const getCategories = (categoryString) => {
-    if (!categoryString) return ["General"];
-    if (categoryString.startsWith("[")) {
-      try {
-        const cleanedString = categoryString.replace(/[[\]']/g, "");
-        return cleanedString
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
-      } catch (e) {
-        return ["General"];
-      }
-    }
-    return [categoryString];
-  };
-
   if (loading || !book) return <SkeletonBookDetail />;
 
   const isOutOfStock = book.stock === 0;
-  const categoriesArray = getCategories(book.category);
 
   const DESCRIPTION_LIMIT = 350;
   const shouldTruncate =
@@ -170,7 +157,7 @@ export default function BookDetail() {
               <div className="flex flex-col h-full justify-center">
                 {/* Categories */}
                 <div className="mb-3 md:mb-5 flex flex-wrap gap-2">
-                  {categoriesArray.map((cat, idx) => (
+                  {book.categories.map((cat, idx) => (
                     <span
                       key={idx}
                       className="inline-block px-2 md:px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-full border border-indigo-100"
@@ -184,7 +171,7 @@ export default function BookDetail() {
                   {book.title}
                 </h1>
                 <p className="text-sm md:text-lg text-slate-500 font-medium mb-4 md:mb-6">
-                  by <span className="text-slate-800">{book.author}</span>
+                  by <span className="text-slate-800">{book.authors?.join(", ")}</span>
                 </p>
 
                 {/* Ratings */}

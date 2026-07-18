@@ -169,7 +169,7 @@ export default function AdminBooks() {
 
               <div className="p-4 flex flex-col flex-1">
                  <h3 className="font-bold text-slate-900 line-clamp-1 text-sm md:text-base" title={b.title}>{b.title}</h3>
-                 <p className="text-xs text-slate-500 mb-3">{b.author}</p>
+                 <p className="text-xs text-slate-500 mb-3">{b.authors?.join(", ")}</p>
                  
                  <div className="mt-auto pt-3 border-t border-slate-50">
                     <div className="flex justify-between items-center mb-3">

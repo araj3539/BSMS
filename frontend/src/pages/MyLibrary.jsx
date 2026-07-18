@@ -85,7 +85,7 @@ export default function MyLibrary() {
                       {book.title}
                     </h3>
                   </Link>
-                  <p className="text-sm text-slate-500 font-medium mb-4 truncate">by {book.author}</p>
+                  <p className="text-sm text-slate-500 font-medium mb-4 truncate">by {book.authors?.join(", ")}</p>
 
                   <div className="mt-auto flex flex-wrap gap-2.5">
                     {book.ebookUrl && (

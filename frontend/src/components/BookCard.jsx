@@ -108,7 +108,7 @@ export default function BookCard({ book }) {
             </h3>
         </Link>
         
-        <p className="text-xs sm:text-sm text-slate-500 truncate mb-2 sm:mb-4 font-medium">by {book.author}</p>
+        <p className="text-xs sm:text-sm text-slate-500 truncate mb-2 sm:mb-4 font-medium">by {book.authors?.join(", ")}</p>
         
         <div className="mt-auto pt-2 sm:pt-4 border-t border-slate-50 flex items-center justify-between">
             <div className="flex flex-col">
