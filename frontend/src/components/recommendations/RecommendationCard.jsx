@@ -53,6 +53,7 @@ export default function RecommendationCard({ recommendation }) {
 
     trackInteraction(_id, action, {
       source: "recommendation",
+      title: book.title,
     });
 
     toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
@@ -94,6 +95,7 @@ export default function RecommendationCard({ recommendation }) {
       toast.success(`${title} added to cart`);
       await trackInteraction(_id, "ADD_CART", {
         source: "recommendation",
+        title: book.title,
       });
     } catch (err) {
       console.error(err);
@@ -166,6 +168,7 @@ ${stock === 0 ? "bg-gray-200 cursor-not-allowed" : "bg-white hover:scale-110"}`}
         onClick={() =>
           trackInteraction(_id, "CLICK", {
             source: "recommendation",
+            title: book.title,
           })
         }
       >
