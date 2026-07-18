@@ -63,6 +63,8 @@ router.post("/checkout-init", auth, async (req, res) => {
       orderItems.push({
         bookId: b._id,
         title: b.title,
+        authors: b.authors,
+        categories: b.categories,
         qty: it.qty,
         price: b.price,
       });

@@ -1,6 +1,11 @@
 import api from "./api";
 
 export async function trackInteraction(bookId, action, metadata = {}) {
+  console.log({
+    bookId,
+    action,
+    metadata,
+  });
   try {
     await api.post("/recommendation/track", {
       bookId,

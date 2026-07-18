@@ -13,6 +13,9 @@ const OrderItemSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    
+    authors: [String],
+    categories: [String],
 
     qty: {
       type: Number,

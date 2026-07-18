@@ -144,7 +144,7 @@ router.get('/my-library', auth, async (req, res) => {
     // 3. Fetch the actual book details for those IDs
     const libraryBooks = await Book.find({
       _id: { $in: Array.from(bookIds) }
-    }).select('title author coverImageUrl ebookUrl audiobookUrl category');
+    }).select('title authors coverImageUrl ebookUrl audiobookUrl categories');
 
     res.json(libraryBooks);
   } catch (error) {
