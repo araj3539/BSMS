@@ -51,27 +51,43 @@ export default function BookDetail() {
 
   async function addToCart() {
     setAdding(true);
-    await new Promise((r) => setTimeout(r, 500));
 
-    const cartKey = user ? `cart_${user._id}` : "cart_guest";
-    const cart = JSON.parse(localStorage.getItem(cartKey) || "[]");
-    const existing = cart.find((ci) => ci.bookId === book._id);
+    try {
+      await new Promise((r) => setTimeout(r, 500));
 
-    if (existing) existing.qty += qty;
-    else
-      cart.push({
-        bookId: book._id,
+      const cartKey = user ? `cart_${user._id}` : "cart_guest";
+      const cart = JSON.parse(localStorage.getItem(cartKey) || "[]");
+
+      const existing = cart.find((ci) => ci.bookId === book._id);
+
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        cart.push({
+          bookId: book._id,
+          title: book.title,
+          price: book.price,
+          coverImageUrl: book.coverImageUrl,
+          qty,
+        });
+      }
+
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+
+      if (user) syncCart(user._id, cart);
+
+      toast.success(`${book.title} added to cart!`);
+
+      await trackInteraction(book._id, "ADD_CART", {
+        source: "book_detail",
         title: book.title,
-        price: book.price,
-        coverImageUrl: book.coverImageUrl,
-        qty,
       });
-
-    localStorage.setItem(cartKey, JSON.stringify(cart));
-    if (user) syncCart(user._id, cart);
-
-    toast.success(`${book.title} added to cart!`);
-    setAdding(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Unable to add to cart");
+    } finally {
+      setAdding(false);
+    }
   }
 
   function updateQty(val) {

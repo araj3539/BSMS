@@ -16,6 +16,7 @@ import { syncCart } from "../../utils/cart";
 import MatchBadge from "./MatchBadge";
 import RecommendationReasons from "./RecommendationReasons";
 import RecommendationScoreBreakdown from "./RecommendationScoreBreakdown";
+import { trackInteraction } from "../../services/interaction.service";
 
 export default function RecommendationCard({ recommendation }) {
   const { user } = useAuth();
@@ -91,7 +92,7 @@ export default function RecommendationCard({ recommendation }) {
       }
 
       toast.success(`${title} added to cart`);
-      trackInteraction(_id, "ADD_CART", {
+      await trackInteraction(_id, "ADD_CART", {
         source: "recommendation",
       });
     } catch (err) {
