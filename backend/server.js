@@ -15,6 +15,8 @@ const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const orderRoutes = require('./routes/orders');
 
+const embeddingWorker = require("./recommendation/workers/embedding.worker");
+
 const app = express();
 
 // --- FIX 1: TRUST PROXY (Required for Render) ---
@@ -87,6 +89,8 @@ app.use(
 app.get('/ping', (req, res) => {
   res.status(200).send('Pong');
 });
+
+embeddingWorker.start();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, ()=> console.log(`Server listening on ${PORT}`));
