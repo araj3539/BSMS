@@ -12,6 +12,7 @@ import {
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { syncCart } from "../../utils/cart";
+import api from "../../services/api";
 
 import MatchBadge from "./MatchBadge";
 import RecommendationReasons from "./RecommendationReasons";
@@ -19,10 +20,7 @@ import RecommendationScoreBreakdown from "./RecommendationScoreBreakdown";
 import { trackInteraction } from "../../services/interaction.service";
 
 export default function RecommendationCard({ recommendation }) {
-  const { user } = useAuth();
-
-  const [wishlisted, setWishlisted] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const { user, updateProfile } = useAuth();
 
   const {
     _id,
@@ -44,22 +42,45 @@ export default function RecommendationCard({ recommendation }) {
     reasons,
   } = recommendation;
 
-  const handleWishlist = (e) => {
+  const [wishlisted, setWishlisted] = useState(
+    user?.wishlist?.some(
+      (item) => (typeof item === "string" ? item : item._id) === _id,
+    ) || false,
+  );
+  const [adding, setAdding] = useState(false);
+
+  const handleWishlist = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    setWishlisted((prev) => !prev);
+    if (!user) {
+      return toast.error("Login to save items");
+    }
 
-    const action = wishlisted ? "REMOVE_WISHLIST" : "WISHLIST";
+    try {
+      const action = wishlisted ? "REMOVE_WISHLIST" : "WISHLIST";
 
-    trackInteraction(_id, action, {
-      source: "recommendation",
-      title,
-      authors,
-      categories,
-    });
+      const res = await api.put(`/auth/wishlist/${_id}`);
 
-    toast.success(wishlisted ? "Removed from wishlist" : "Added to wishlist");
+      updateProfile(res.data.user);
+
+      try {
+        await trackInteraction(_id, action, {
+          source: "recommendation",
+          title,
+          authors,
+          categories,
+        });
+      } catch (err) {
+        console.error("Interaction tracking failed", err);
+      }
+
+      toast.success(
+        action === "WISHLIST" ? "Added to wishlist" : "Removed from wishlist",
+      );
+    } catch (err) {
+      toast.error("Failed to update wishlist");
+    }
   };
 
   async function handleAddToCart(e) {
@@ -203,7 +224,9 @@ ${stock === 0 ? "bg-gray-200 cursor-not-allowed" : "bg-white hover:scale-110"}`}
           {title}
         </Link>
 
-        <p className="text-sm text-gray-500 line-clamp-1">{authors?.join(", ")}</p>
+        <p className="text-sm text-gray-500 line-clamp-1">
+          {authors?.join(", ")}
+        </p>
 
         {/* Stock */}
 

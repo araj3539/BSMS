@@ -30,11 +30,16 @@ class CollaborativeRecommendation {
 
     const myInteractions = await UserInteraction.find({
       user: userId,
+      book: { $ne: null },
     }).lean();
 
     if (!myInteractions.length) return [];
 
-    const myBooks = [...new Set(myInteractions.map((i) => i.book.toString()))];
+    const myBooks = [
+      ...new Set(
+        myInteractions.filter((i) => i.book).map((i) => i.book.toString()),
+      ),
+    ];
 
     //------------------------------------------
     // Step 2 : Find Similar Users
@@ -87,6 +92,7 @@ class CollaborativeRecommendation {
       user: {
         $in: similarUserIds,
       },
+      book: { $ne: null },
     }).lean();
 
     //------------------------------------------
@@ -96,6 +102,8 @@ class CollaborativeRecommendation {
     const scoreMap = new Map();
 
     for (const interaction of interactions) {
+      if (!interaction.book) continue;
+
       const id = interaction.book.toString();
 
       if (myBooks.includes(id)) continue;
