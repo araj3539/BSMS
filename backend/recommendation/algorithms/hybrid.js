@@ -11,7 +11,7 @@ class HybridRecommendation {
   }
 
   normalize(score) {
-    if (Number.isNaN(score)) return 0;
+    if (score == null || Number.isNaN(score)) return 0;
 
     return Math.max(0, Math.min(score, 1));
   }
@@ -20,6 +20,10 @@ class HybridRecommendation {
     return {
       book,
 
+      // Generic score container
+      scores: {},
+
+      // Backward compatibility
       semanticScore: 0,
       collaborativeScore: 0,
       popularityScore: 0,
@@ -31,7 +35,7 @@ class HybridRecommendation {
 
   mergeAlgorithm({ map, recommendations = [], scoreField }) {
     recommendations.forEach((item) => {
-      if (!item.book) return;
+      if (!item?.book) return;
 
       const id = item.book._id.toString();
 
@@ -44,7 +48,15 @@ class HybridRecommendation {
         map.set(id, recommendation);
       }
 
-      recommendation[scoreField] = this.normalize(item[scoreField] || 0);
+      const score = this.normalize(
+        item[`${scoreField}Score`] ?? item[scoreField] ?? 0,
+      );
+
+      // Generic storage
+      recommendation.scores[scoreField] = score;
+
+      // Legacy fields (for existing code)
+      recommendation[`${scoreField}Score`] = score;
     });
   }
 
@@ -77,7 +89,7 @@ class HybridRecommendation {
       }
     }
 
-    return Math.min(boost / this.MAX_PROFILE_SCORE, 1);
+    return this.normalize(boost / this.MAX_PROFILE_SCORE);
   }
 
   applyProfileBoost(map, profile) {
@@ -89,18 +101,23 @@ class HybridRecommendation {
         profile,
       );
 
+      recommendation.scores.profile = profileScore;
+
+      // Backward compatibility
       recommendation.profileScore = profileScore;
     });
   }
 
   calculateFinalScore(recommendation) {
-    const score =
-      recommendation.semanticScore * this.weights.semantic +
-      recommendation.collaborativeScore * this.weights.collaborative +
-      recommendation.popularityScore * this.weights.popularity +
-      recommendation.profileScore * this.weights.profile;
+    let total = 0;
 
-    return this.normalize(score);
+    for (const algorithm in this.weights) {
+      const score = recommendation.scores[algorithm] || 0;
+
+      total += score * this.weights[algorithm];
+    }
+
+    return this.normalize(total);
   }
 
   calculateScores(map) {
@@ -111,8 +128,8 @@ class HybridRecommendation {
 
   merge({
     semantic = [],
-    popularity = [],
     collaborative = [],
+    popularity = [],
     profile = null,
   }) {
     const map = new Map();
@@ -120,30 +137,19 @@ class HybridRecommendation {
     this.mergeAlgorithm({
       map,
       recommendations: semantic,
-      scoreField: "semanticScore",
-      weight: this.weights.semantic,
+      scoreField: "semantic",
     });
-
-    //------------------------------------
-    // Popularity
-    //------------------------------------
-
-    this.mergeAlgorithm({
-      map,
-      recommendations: popularity,
-      scoreField: "popularityScore",
-      weight: this.weights.popularity,
-    });
-
-    //------------------------------------
-    // Collaborative
-    //------------------------------------
 
     this.mergeAlgorithm({
       map,
       recommendations: collaborative,
-      scoreField: "collaborativeScore",
-      weight: this.weights.collaborative,
+      scoreField: "collaborative",
+    });
+
+    this.mergeAlgorithm({
+      map,
+      recommendations: popularity,
+      scoreField: "popularity",
     });
 
     this.applyProfileBoost(map, profile);
