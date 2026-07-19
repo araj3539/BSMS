@@ -13,9 +13,8 @@ import { toast } from "react-hot-toast";
 import { trackInteraction } from "../services/interaction.service";
 import { useRef } from "react";
 
-const hasTrackedView = useRef(false);
-
 export default function BookDetail() {
+  const hasTrackedView = useRef(false);
   const { id } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
@@ -32,19 +31,21 @@ export default function BookDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (!book?._id) return;
+    hasTrackedView.current = false;
+}, [id]);
 
-    if (hasTrackedView.current) return;
+useEffect(() => {
+    if (!book?._id || hasTrackedView.current) return;
 
     hasTrackedView.current = true;
 
     trackInteraction(book._id, "VIEW", {
-      source: "book_detail",
-      title: book.title,
-      authors: book.authors,
-      categories: book.categories,
+        source: "book_detail",
+        title: book.title,
+        authors: book.authors,
+        categories: book.categories,
     });
-  }, [book]);
+}, [book, id]);
 
   async function fetchBook() {
     try {
