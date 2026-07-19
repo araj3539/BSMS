@@ -243,27 +243,6 @@ router.post("/webhook", async (req, res) => {
 
           await order.save();
 
-          //------------------------------------------------
-          // Log Purchase Interactions
-          //------------------------------------------------
-
-          for (const item of order.items) {
-            await interactionService.log({
-              userId: order.userId,
-              bookId: item.bookId,
-              action: "PURCHASE",
-              metadata: {
-                title: item.title,
-                authors: item.authors || [],
-                categories: item.categories || [],
-                quantity: item.qty,
-                price: item.price,
-                orderId: order._id,
-                paymentId: paymentIntent.id,
-              },
-            });
-          }
-
           return res.status(200).json({
             received: true,
           });
@@ -309,6 +288,35 @@ router.post("/webhook", async (req, res) => {
       order.paidAt = new Date();
 
       await order.save();
+
+      //------------------------------------------------
+      // Log Purchase Interactions
+      //------------------------------------------------
+
+      try {
+        for (const item of order.items) {
+          await interactionService.log({
+            userId: order.userId,
+            bookId: item.bookId,
+            action: "PURCHASE",
+            metadata: {
+              title: item.title,
+              authors: item.authors || [],
+              categories: item.categories || [],
+              quantity: item.qty,
+              price: item.price,
+              orderId: order._id,
+              paymentId: paymentIntent.id,
+            },
+          });
+        }
+
+        console.log(
+          `✅ Logged ${order.items.length} PURCHASE interaction(s) for Order ${order._id}`,
+        );
+      } catch (err) {
+        console.error("[Purchase Interaction]", err);
+      }
 
       //------------------------------------------------
       // Generate Invoice + Send Email
