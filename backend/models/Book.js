@@ -51,14 +51,16 @@ const BookSchema = new mongoose.Schema(
     ebookUrl: { type: String },
     audiobookUrl: { type: String },
     soldCount: { type: Number, default: 0 },
-    embeddingVersion: {
-      type: Number,
-      default: 2,
-    },
 
     reviews: [ReviewSchema],
     rating: { type: Number, required: true, default: 0 },
     numReviews: { type: Number, required: true, default: 0 },
+
+    searchText: {
+    type: String,
+    select: false,
+},
+
     embeddingMetadata: {
     provider: {
         type: String,
@@ -77,7 +79,12 @@ const BookSchema = new mongoose.Schema(
     dimensions: {
         type: Number,
         default: 768
-    }
+    },
+    status: {
+        type: String,
+        enum: ["pending", "processing", "completed", "failed"],
+        default: "pending",
+    },
 },
     // Your new vector field
     embedding: { type: [Number], select: false },

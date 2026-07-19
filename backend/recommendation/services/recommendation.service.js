@@ -209,15 +209,30 @@ class RecommendationService {
 
     if (userId) {
       try {
-        const profile = await profileService.getProfile(userId);
+        const [profile, collaborativeResults, popularityResults] =
+          await Promise.all([
+            profileService.getProfile(userId),
 
-        if (profile && profile.favoriteCategories.length > 0) {
-          const favouriteCategory = profile.favoriteCategories[0].category;
+            collaborative.recommend(userId),
 
-          recommended = popular.filter((item) =>
-            item.book.categories?.includes(favouriteCategory),
-          );
-        }
+            popularity.recommend({
+              limit: 20,
+            }),
+          ]);
+
+        const merged = hybrid.merge({
+          semantic: [],
+
+          collaborative: collaborativeResults,
+
+          popularity: popularityResults,
+
+          profile,
+        });
+
+        const reranked = reranker.rerank(merged);
+
+        recommended = explainer.explainAll(reranked).slice(0, 10);
       } catch (err) {
         console.error("[Home] Personalized:", err.message);
       }

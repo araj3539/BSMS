@@ -14,6 +14,7 @@ const { body, validationResult } = require("express-validator");
 const multer = require("multer");
 const csv = require("csv-parser");
 const stream = require("stream");
+const bookService = require("../services/book.service");
 const interactionService = require("../recommendation/services/interaction.service");
 
 // Import Security Middleware
@@ -267,8 +268,7 @@ router.post(
   validateBook,
   async (req, res) => {
     try {
-      const book = new Book(req.body);
-      await book.save();
+      const book = await bookService.createBook(req.body);
       res.status(201).json(book);
     } catch (err) {
       console.error(err);
@@ -313,7 +313,9 @@ router.post(
         try {
           if (results.length === 0)
             return res.status(400).json({ msg: "CSV is empty or invalid" });
-          await Book.insertMany(results);
+          const books = await Promise.all(
+            results.map((book) => bookService.createBook(book)),
+          );
           res.json({ msg: `Successfully added ${results.length} books` });
         } catch (err) {
           console.error(err);
@@ -334,9 +336,7 @@ router.put(
   validateBook,
   async (req, res) => {
     try {
-      const updated = await Book.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-      });
+      const updated = await bookService.updateBook(req.params.id, req.body);
       if (!updated) return res.status(404).json({ msg: "Not found" });
       res.json(updated);
     } catch (err) {
