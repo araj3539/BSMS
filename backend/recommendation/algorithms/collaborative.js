@@ -35,86 +35,122 @@ class CollaborativeRecommendation {
 
     if (!myInteractions.length) return [];
 
-    const myBooks = [
-      ...new Set(
-        myInteractions.filter((i) => i.book).map((i) => i.book.toString()),
-      ),
-    ];
+    const myBookWeights = new Map();
+    const myBooks = [];
+
+    for (const interaction of myInteractions) {
+      if (!interaction.book) continue;
+
+      const id = interaction.book.toString();
+
+      if (!myBooks.includes(id)) myBooks.push(id);
+
+      let weight = ACTION_WEIGHTS[interaction.action] || 1;
+
+      // Rating-aware weighting
+      if (
+        interaction.action === "RATE" &&
+        typeof interaction.metadata?.rating === "number"
+      ) {
+        weight *= interaction.metadata.rating / 5;
+      }
+
+      myBookWeights.set(id, (myBookWeights.get(id) || 0) + weight);
+    }
 
     //------------------------------------------
-    // Step 2 : Find Similar Users
+    //Step 2 : Load Candidate Interactions
     //------------------------------------------
 
-    const similarUsers = await UserInteraction.aggregate([
-      {
-        $match: {
-          book: {
-            $in: myBooks.map((id) => new ObjectId(id)),
-          },
-
-          user: {
-            $ne: new ObjectId(userId),
-          },
-        },
+    const candidateInteractions = await UserInteraction.find({
+      user: { $ne: userId },
+      book: {
+        $in: myBooks.map((id) => new ObjectId(id)),
       },
+    }).lean();
 
-      {
-        $group: {
-          _id: "$user",
+    if (!candidateInteractions.length) return [];
 
-          overlap: {
-            $sum: 1,
-          },
-        },
-      },
+    //------------------------------------------
+    // Step 3 : Calculate User Similarity
+    //------------------------------------------
 
-      {
-        $sort: {
-          overlap: -1,
-        },
-      },
+    const similarityMap = new Map();
 
-      {
-        $limit: 50,
-      },
-    ]);
+    for (const interaction of candidateInteractions) {
+      if (!interaction.book) continue;
+
+      const bookId = interaction.book.toString();
+
+      const myWeight = myBookWeights.get(bookId);
+
+      if (!myWeight) continue;
+
+      let theirWeight = ACTION_WEIGHTS[interaction.action] || 1;
+
+      if (
+        interaction.action === "RATE" &&
+        typeof interaction.metadata?.rating === "number"
+      ) {
+        theirWeight *= interaction.metadata.rating / 5;
+      }
+
+      const similarity = Math.min(myWeight, theirWeight);
+
+      similarityMap.set(
+        interaction.user.toString(),
+        (similarityMap.get(interaction.user.toString()) || 0) + similarity,
+      );
+    }
+
+    const similarUsers = [...similarityMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 50)
+      .map(([user, similarity]) => ({
+        _id: new ObjectId(user),
+
+        similarity,
+      }));
 
     if (!similarUsers.length) return [];
 
-    //------------------------------------------
-    // Step 3 : Load Similar Users'
-    // Interactions
-    //------------------------------------------
+    // Step 4 : Score Candidate Books
 
-    const similarUserIds = similarUsers.map((u) => u._id);
+    const similarityLookup = new Map(
+      similarUsers.map((user) => [user._id.toString(), user.similarity]),
+    );
+
+    const scoreMap = new Map();
 
     const interactions = await UserInteraction.find({
       user: {
-        $in: similarUserIds,
+        $in: similarUsers.map((user) => user._id),
       },
       book: { $ne: null },
     }).lean();
-
-    //------------------------------------------
-    // Step 4 : Score Books
-    //------------------------------------------
-
-    const scoreMap = new Map();
 
     for (const interaction of interactions) {
       if (!interaction.book) continue;
 
       const id = interaction.book.toString();
 
+      // Don't recommend books the user already knows
       if (myBooks.includes(id)) continue;
 
-      const weight = ACTION_WEIGHTS[interaction.action] || 1;
+      const similarity = similarityLookup.get(interaction.user.toString());
 
-      scoreMap.set(
-        id,
+      if (!similarity) continue;
 
-        (scoreMap.get(id) || 0) + weight,
-      );
+      let weight = ACTION_WEIGHTS[interaction.action] || 1;
+
+      if (
+        interaction.action === "RATE" &&
+        typeof interaction.metadata?.rating === "number"
+      ) {
+        weight *= interaction.metadata.rating / 5;
+      }
+
+      scoreMap.set(id, (scoreMap.get(id) || 0) + similarity * weight);
     }
 
     //------------------------------------------
