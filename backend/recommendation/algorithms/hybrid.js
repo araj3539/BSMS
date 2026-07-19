@@ -16,6 +16,99 @@ class HybridRecommendation {
     return Math.max(0, Math.min(score, 1));
   }
 
+  createCandidate(book) {
+    return {
+      book,
+
+      semanticScore: 0,
+      collaborativeScore: 0,
+      popularityScore: 0,
+      profileScore: 0,
+
+      finalScore: 0,
+    };
+  }
+
+  mergeAlgorithm({ map, recommendations = [], scoreField }) {
+    recommendations.forEach((item) => {
+      if (!item.book) return;
+
+      const id = item.book._id.toString();
+
+      let recommendation;
+
+      if (map.has(id)) {
+        recommendation = map.get(id);
+      } else {
+        recommendation = this.createCandidate(item.book);
+        map.set(id, recommendation);
+      }
+
+      recommendation[scoreField] = this.normalize(item[scoreField] || 0);
+    });
+  }
+
+  calculateProfileScore(book, profile) {
+    if (!profile) return 0;
+
+    let boost = 0;
+
+    // Category affinity
+    if (book.categories?.length && profile.favoriteCategories?.length) {
+      for (const category of book.categories) {
+        const match = profile.favoriteCategories.find(
+          (c) => c.category === category,
+        );
+
+        if (match) {
+          boost += match.score;
+        }
+      }
+    }
+
+    // Author affinity
+    if (book.authors?.length && profile.favoriteAuthors?.length) {
+      for (const author of book.authors) {
+        const match = profile.favoriteAuthors.find((a) => a.author === author);
+
+        if (match) {
+          boost += match.score;
+        }
+      }
+    }
+
+    return Math.min(boost / this.MAX_PROFILE_SCORE, 1);
+  }
+
+  applyProfileBoost(map, profile) {
+    if (!profile) return;
+
+    map.forEach((recommendation) => {
+      const profileScore = this.calculateProfileScore(
+        recommendation.book,
+        profile,
+      );
+
+      recommendation.profileScore = profileScore;
+    });
+  }
+
+  calculateFinalScore(recommendation) {
+    const score =
+      recommendation.semanticScore * this.weights.semantic +
+      recommendation.collaborativeScore * this.weights.collaborative +
+      recommendation.popularityScore * this.weights.popularity +
+      recommendation.profileScore * this.weights.profile;
+
+    return this.normalize(score);
+  }
+
+  calculateScores(map) {
+    map.forEach((recommendation) => {
+      recommendation.finalScore = this.calculateFinalScore(recommendation);
+    });
+  }
+
   merge({
     semantic = [],
     popularity = [],
@@ -24,107 +117,38 @@ class HybridRecommendation {
   }) {
     const map = new Map();
 
-    //------------------------------------
-    // Semantic
-    //------------------------------------
-
-    semantic.forEach((item) => {
-      const id = item.book._id.toString();
-
-      const semanticScore = this.normalize(item.semanticScore || 0);
-
-      map.set(id, {
-        book: item.book,
-
-        semanticScore,
-
-        collaborativeScore: 0,
-
-        popularityScore: 0,
-
-        profileScore: 0,
-
-        finalScore: semanticScore * this.weights.semantic,
-      });
+    this.mergeAlgorithm({
+      map,
+      recommendations: semantic,
+      scoreField: "semanticScore",
+      weight: this.weights.semantic,
     });
 
     //------------------------------------
     // Popularity
     //------------------------------------
 
-    popularity.forEach((item) => {
-      const id = item.book._id.toString();
-
-      if (!map.has(id)) return;
-
-      const recommendation = map.get(id);
-
-      const score = this.normalize(item.popularityScore || 0);
-
-      recommendation.popularityScore = score;
-
-      recommendation.finalScore += score * this.weights.popularity;
+    this.mergeAlgorithm({
+      map,
+      recommendations: popularity,
+      scoreField: "popularityScore",
+      weight: this.weights.popularity,
     });
 
     //------------------------------------
     // Collaborative
     //------------------------------------
 
-    collaborative.forEach((item) => {
-      const id = item.book._id.toString();
-
-      if (!map.has(id)) return;
-
-      const recommendation = map.get(id);
-
-      const score = this.normalize(item.collaborativeScore || 0);
-
-      recommendation.collaborativeScore = score;
-
-      recommendation.finalScore += score * this.weights.collaborative;
+    this.mergeAlgorithm({
+      map,
+      recommendations: collaborative,
+      scoreField: "collaborativeScore",
+      weight: this.weights.collaborative,
     });
 
-    //------------------------------------
-    // Profile
-    //------------------------------------
+    this.applyProfileBoost(map, profile);
 
-    if (profile) {
-      map.forEach((recommendation) => {
-        let boost = 0;
-
-        //--------------------------------
-
-        if (recommendation.book.categories && profile.favoriteCategories) {
-          recommendation.book.categories.forEach((category) => {
-            const match = profile.favoriteCategories.find(
-              (c) => c.category === category,
-            );
-
-            if (match) boost += match.score;
-          });
-        }
-
-        //--------------------------------
-
-        if (recommendation.book.authors && profile.favoriteAuthors) {
-          recommendation.book.authors.forEach((author) => {
-            const match = profile.favoriteAuthors.find(
-              (a) => a.author === author,
-            );
-
-            if (match) boost += match.score;
-          });
-        }
-
-        const normalizedProfile = Math.min(boost / this.MAX_PROFILE_SCORE, 1);
-
-        recommendation.profileScore = normalizedProfile;
-
-        recommendation.finalScore += normalizedProfile * this.weights.profile;
-
-        recommendation.finalScore = this.normalize(recommendation.finalScore);
-      });
-    }
+    this.calculateScores(map);
 
     return [...map.values()].sort((a, b) => b.finalScore - a.finalScore);
   }
