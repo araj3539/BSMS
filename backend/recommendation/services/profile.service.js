@@ -38,7 +38,14 @@ class ProfileService {
 
       if (!book) continue;
 
-      const weight = ACTION_WEIGHTS[interaction.action] || 1;
+      let weight = ACTION_WEIGHTS[interaction.action] || 1;
+
+      if (
+        interaction.action === "RATE" &&
+        typeof interaction.metadata?.rating === "number"
+      ) {
+        weight *= interaction.metadata.rating / 5;
+      }
 
       //----------------------------------
       // Authors

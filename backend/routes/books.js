@@ -14,6 +14,7 @@ const { body, validationResult } = require("express-validator");
 const multer = require("multer");
 const csv = require("csv-parser");
 const stream = require("stream");
+const interactionService = require("../recommendation/services/interaction.service");
 
 // Import Security Middleware
 const { requireAdmin, audit } = require("../middleware/security");
@@ -222,6 +223,32 @@ router.post("/:id/reviews", auth, async (req, res) => {
       book.reviews.length;
 
     await book.save();
+
+    await interactionService.log({
+      userId: req.user.id,
+      bookId: book._id,
+      action: "RATE",
+      metadata: {
+        rating: Number(rating),
+        title: book.title,
+        authors: book.authors,
+        categories: book.categories,
+      },
+    });
+
+    await interactionService.log({
+      userId: req.user.id,
+      bookId: book._id,
+      action: "REVIEW",
+      metadata: {
+        rating: Number(rating),
+        commentLength: comment.length,
+        title: book.title,
+        authors: book.authors,
+        categories: book.categories,
+      },
+    });
+
     res.status(201).json({ msg: "Review added" });
   } catch (err) {
     console.error(err);
@@ -388,6 +415,32 @@ router.put("/:id/reviews/:reviewId", auth, async (req, res) => {
       book.reviews.length;
 
     await book.save();
+
+    await interactionService.log({
+      userId: req.user.id,
+      bookId: book._id,
+      action: "RATE",
+      metadata: {
+        rating: review.rating,
+        title: book.title,
+        authors: book.authors,
+        categories: book.categories,
+      },
+    });
+
+    await interactionService.log({
+      userId: req.user.id,
+      bookId: book._id,
+      action: "REVIEW",
+      metadata: {
+        rating: review.rating,
+        commentLength: review.comment.length,
+        title: book.title,
+        authors: book.authors,
+        categories: book.categories,
+      },
+    });
+
     res.json({ msg: "Review updated" });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
@@ -515,11 +568,9 @@ router.get("/:id/download-epub", auth, async (req, res) => {
       "Proxy Error Details:",
       error.response ? error.response.status : error.message,
     );
-    res
-      .status(500)
-      .json({
-        message: "Failed to securely load the ebook file from the source.",
-      });
+    res.status(500).json({
+      message: "Failed to securely load the ebook file from the source.",
+    });
   }
 });
 

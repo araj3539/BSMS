@@ -11,6 +11,9 @@ import { syncCart } from "../utils/cart";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { trackInteraction } from "../services/interaction.service";
+import { useRef } from "react";
+
+const hasTrackedView = useRef(false);
 
 export default function BookDetail() {
   const { id } = useParams();
@@ -30,6 +33,10 @@ export default function BookDetail() {
 
   useEffect(() => {
     if (!book?._id) return;
+
+    if (hasTrackedView.current) return;
+
+    hasTrackedView.current = true;
 
     trackInteraction(book._id, "VIEW", {
       source: "book_detail",
@@ -171,7 +178,10 @@ export default function BookDetail() {
                   {book.title}
                 </h1>
                 <p className="text-sm md:text-lg text-slate-500 font-medium mb-4 md:mb-6">
-                  by <span className="text-slate-800">{book.authors?.join(", ")}</span>
+                  by{" "}
+                  <span className="text-slate-800">
+                    {book.authors?.join(", ")}
+                  </span>
                 </p>
 
                 {/* Ratings */}

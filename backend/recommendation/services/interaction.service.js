@@ -12,6 +12,21 @@ class InteractionService {
       return null;
     }
 
+    if (action === "VIEW") {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+      const existing = await UserInteraction.findOne({
+        user: userId,
+        book: bookId,
+        action: "VIEW",
+        createdAt: { $gte: fiveMinutesAgo },
+      });
+
+      if (existing) {
+        return existing;
+      }
+    }
+
     const interaction = await UserInteraction.create({
       user: userId,
       book: bookId || null,
