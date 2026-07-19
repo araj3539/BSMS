@@ -101,20 +101,12 @@ class EmbeddingWorker {
 
         try {
 
-            console.log(
-                "[EmbeddingWorker] Checking pending embeddings..."
-            );
-
             const result =
                 await embeddingService.processPendingBooks(
                     this.batchSize
                 );
 
             if (result.processed === 0) {
-
-                console.log(
-                    "[EmbeddingWorker] No pending books."
-                );
 
             } else {
 
