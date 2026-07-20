@@ -15,6 +15,8 @@ const authRoutes = require("./routes/auth");
 const bookRoutes = require("./routes/books");
 const orderRoutes = require("./routes/orders");
 
+const profileRoutes = require("./recommendation/routes/profile.routes");
+
 const embeddingWorker = require("./recommendation/workers/embedding.worker");
 
 const app = express();
@@ -113,6 +115,11 @@ app.use("/api/ai", require("./routes/ai"));
 app.use(
   "/api/recommendation",
   require("./recommendation/routes/recommendation.routes"),
+);
+
+app.use(
+  "/api/recommendation/profile",
+  profileRoutes
 );
 // --- 9. PING ---
 app.get("/ping", (req, res) => {
