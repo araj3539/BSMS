@@ -26,12 +26,13 @@ class ProfileService {
 
     if (!interactions.length) return null;
 
-    const genreScores = {};
     const categoryScores = {};
     const authorScores = {};
+    const formatScores = {};
+    const recentCategoryScores = {};
 
-    let totalPrice = 0;
-    let priceCount = 0;
+    let weightedPrice = 0;
+    let totalWeight = 0;
 
     for (const interaction of interactions) {
       const book = interaction.book;
@@ -39,6 +40,17 @@ class ProfileService {
       if (!book) continue;
 
       let weight = ACTION_WEIGHTS[interaction.action] || 1;
+
+      // -------------------------------
+      // Time Decay
+      // -------------------------------
+
+      const ageDays =
+        (Date.now() - new Date(interaction.createdAt)) / (1000 * 60 * 60 * 24);
+
+      const decay = Math.exp(-ageDays / 180);
+
+      weight *= decay;
 
       if (
         interaction.action === "RATE" &&
@@ -58,6 +70,22 @@ class ProfileService {
       }
 
       //----------------------------------
+      //format
+      //----------------------------------
+
+      if (book.ebookUrl) {
+        formatScores["ebook"] = (formatScores["ebook"] || 0) + weight;
+      }
+
+      if (book.audiobookUrl) {
+        formatScores["audiobook"] = (formatScores["audiobook"] || 0) + weight;
+      }
+
+      if (!book.ebookUrl && !book.audiobookUrl) {
+        formatScores["paperback"] = (formatScores["paperback"] || 0) + weight;
+      }
+
+      //----------------------------------
       // Categories
       //----------------------------------
 
@@ -67,13 +95,10 @@ class ProfileService {
         });
       }
 
-      //----------------------------------
-      // Genres
-      //----------------------------------
-
-      if (book.genres?.length) {
-        book.genres.forEach((genre) => {
-          genreScores[genre] = (genreScores[genre] || 0) + weight;
+      if (ageDays <= 90) {
+        book.categories?.forEach((category) => {
+          recentCategoryScores[category] =
+            (recentCategoryScores[category] || 0) + weight;
         });
       }
 
@@ -82,9 +107,9 @@ class ProfileService {
       //----------------------------------
 
       if (book.price) {
-        totalPrice += book.price;
+        weightedPrice += book.price * weight;
 
-        priceCount++;
+        totalWeight += weight;
       }
     }
 
@@ -112,14 +137,28 @@ class ProfileService {
         score,
       }));
 
-    const favoriteGenres = Object.entries(genreScores)
+    const confidence = Math.min(1, interactions.length / 100);
+
+    const favoriteFormats = Object.entries(formatScores)
 
       .sort((a, b) => b[1] - a[1])
 
-      .slice(0, 20)
+      .slice(0, 10)
 
-      .map(([genre, score]) => ({
-        genre,
+      .map(([format, score]) => ({
+        format,
+
+        score,
+      }));
+
+    const recentInterests = Object.entries(recentCategoryScores)
+
+      .sort((a, b) => b[1] - a[1])
+
+      .slice(0, 10)
+
+      .map(([category, score]) => ({
+        category,
 
         score,
       }));
@@ -127,13 +166,17 @@ class ProfileService {
     const profile = {
       user: userId,
 
+      confidence,
+
+      recentInterests,
+
       favoriteAuthors,
+
+      favoriteFormats,
 
       favoriteCategories,
 
-      favoriteGenres,
-
-      averagePrice: priceCount ? totalPrice / priceCount : 0,
+      averagePrice: totalWeight ? weightedPrice / totalWeight : 0,
 
       totalInteractions: interactions.length,
     };

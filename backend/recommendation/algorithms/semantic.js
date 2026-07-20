@@ -1,57 +1,59 @@
-const Book = require("../../models/Book");
 const vectorService = require("../services/vector.service");
 
 class SemanticRecommendation {
+  /**
+   * Recommend similar books using vector similarity
+   */
+  async recommend(bookId, options = {}) {
+    const candidates = await vectorService.similarBooks(bookId, {
+      minScore: 0.75,
+      ...options,
+    });
 
-    /**
-     * Get semantic recommendations for a book
-     */
-    async recommend(bookId, options = {}) {
+    return candidates.map((candidate) => ({
+      book: candidate,
 
-        const candidates =
-            await vectorService.findNearestByBook(bookId, options);
+      semanticScore: candidate.score,
 
-        if (!candidates.length)
-            return [];
+      confidence: candidate.confidence,
+    }));
+  }
 
-        const ids =
-            candidates.map(c => c._id);
+  /**
+   * Recommend books from free-text query
+   */
+  async recommendByText(query, options = {}) {
+    const candidates = await vectorService.semanticSearch(query, {
+      minScore: 0.75,
+      ...options,
+    });
 
-        const books =
-            await Book.find({
-                _id: { $in: ids }
-            });
+    return candidates.map((candidate) => ({
+      book: candidate,
 
-        const bookMap = new Map();
+      semanticScore: candidate.score,
 
-        books.forEach(book => {
-            bookMap.set(book._id.toString(), book);
-        });
+      confidence: candidate.confidence,
+    }));
+  }
 
-        const recommendations = [];
+  /**
+   * Recommend using an existing embedding
+   */
+  async recommendByEmbedding(embedding, options = {}) {
+    const candidates = await vectorService.findNearestByEmbedding(embedding, {
+      minScore: 0.75,
+      ...options,
+    });
 
-        for (const candidate of candidates) {
+    return candidates.map((candidate) => ({
+      book: candidate,
 
-            const book =
-                bookMap.get(candidate._id.toString());
+      semanticScore: candidate.score,
 
-            if (!book)
-                continue;
-
-            recommendations.push({
-
-                book,
-
-                semanticScore: candidate.score
-
-            });
-
-        }
-
-        return recommendations;
-
-    }
-
+      confidence: candidate.confidence,
+    }));
+  }
 }
 
 module.exports = new SemanticRecommendation();

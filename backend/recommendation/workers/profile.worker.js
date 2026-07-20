@@ -16,17 +16,19 @@ class ProfileWorker {
       // Invalidate Recommendation Cache
       //----------------------------------
 
-      await RecommendationCache.deleteMany({
-        user: userId,
-      });
+      try {
+        await RecommendationCache.deleteMany({
+          user: userId,
+        });
+      } catch (err) {
+        console.error("[ProfileWorker] Cache invalidation failed", err);
+      }
 
       console.log(`[ProfileWorker] Completed ${userId}`);
+      return true;
     } catch (err) {
-      console.error(
-        "[ProfileWorker]",
-
-        err.message,
-      );
+      console.error("[ProfileWorker]", err);
+      return false;
     }
   }
 }

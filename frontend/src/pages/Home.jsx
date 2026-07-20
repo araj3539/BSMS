@@ -13,6 +13,8 @@ import SkeletonBookCard from "../components/SkeletonBookCard";
 import { useDebounce } from "../hooks/useDebounce";
 import CustomSelect from "../components/CustomSelect";
 import { trackInteraction } from "../services/interaction.service";
+import RecommendationCard from "../components/recommendations/RecommendationCard";
+import recommendationService from "../services/recommendation.service";
 
 // --- COMPONENTS ---
 
@@ -80,6 +82,8 @@ function Newsletter() {
 }
 
 export default function Home() {
+  const [recommendedBooks, setRecommendedBooks] = useState([]);
+  const [recommendationLoading, setRecommendationLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
@@ -116,6 +120,34 @@ export default function Home() {
     "Self-Help",
   ];
 
+  async function fetchRecommendations() {
+    try {
+      setRecommendationLoading(true);
+
+      const response = await recommendationService.getHomeRecommendations();
+
+      const transformed = (response.data?.recommendedForYou || []).map(
+        (item) => ({
+          ...item.book,
+          matchScore: Math.round(item.finalScore * 100),
+          semanticScore: item.semanticScore,
+          collaborativeScore: item.collaborativeScore,
+          popularityScore: item.popularityScore,
+          profileScore: item.profileScore,
+          reasons: item.reasons || [],
+        }),
+      );
+
+      setRecommendedBooks(transformed);
+    } finally {
+      setRecommendationLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
   useEffect(() => {
     fetchBooks();
     const params = { page, limit };
@@ -141,71 +173,71 @@ export default function Home() {
   }, [page, limit, debouncedQ, filters, sortBy]);
 
   useEffect(() => {
-  const query = debouncedQ.trim();
+    const query = debouncedQ.trim();
 
-  // Clear previous timer
-  if (searchTrackingTimeout.current) {
-    clearTimeout(searchTrackingTimeout.current);
-  }
-
-  // Reset when search box is cleared
-  if (!query) {
-    lastTrackedSearch.current = "";
-    return;
-  }
-
-  searchTrackingTimeout.current = setTimeout(() => {
-    if (query === lastTrackedSearch.current) return;
-
-    lastTrackedSearch.current = query;
-    activeSearchQuery.current = query;
-    trackInteraction(null, "SEARCH", {
-      query,
-      resultCount: total,
-
-      filters: {
-        category: filters.category || null,
-        minPrice: filters.minPrice || null,
-        maxPrice: filters.maxPrice || null,
-        minRating: filters.minRating || null,
-      },
-
-      sort: sortBy,
-      page,
-      source: "home_search",
-    });
-  }, 2000);
-
-  return () => {
+    // Clear previous timer
     if (searchTrackingTimeout.current) {
       clearTimeout(searchTrackingTimeout.current);
     }
-  };
-}, [debouncedQ, total, filters, sortBy]);
+
+    // Reset when search box is cleared
+    if (!query) {
+      lastTrackedSearch.current = "";
+      return;
+    }
+
+    searchTrackingTimeout.current = setTimeout(() => {
+      if (query === lastTrackedSearch.current) return;
+
+      lastTrackedSearch.current = query;
+      activeSearchQuery.current = query;
+      trackInteraction(null, "SEARCH", {
+        query,
+        resultCount: total,
+
+        filters: {
+          category: filters.category || null,
+          minPrice: filters.minPrice || null,
+          maxPrice: filters.maxPrice || null,
+          minRating: filters.minRating || null,
+        },
+
+        sort: sortBy,
+        page,
+        source: "home_search",
+      });
+    }, 2000);
+
+    return () => {
+      if (searchTrackingTimeout.current) {
+        clearTimeout(searchTrackingTimeout.current);
+      }
+    };
+  }, [debouncedQ, total, filters, sortBy]);
 
   async function fetchBooks() {
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const params = {
-      page,
-      limit,
-      q: debouncedQ,
-      ...filters,
-      sort: sortBy,
-    };
+    try {
+      const params = {
+        page,
+        limit,
+        q: debouncedQ,
+        ...filters,
+        sort: sortBy,
+      };
 
-    const res = await api.get("/books", { params });
+      const res = await api.get("/books", { params });
 
-    setBooks(res.data.books || []);
-    setTotal(res.data.total || 0);
-  } catch (err) {
-    console.error(err);
-    setBooks([]);
-  } finally {
-    setLoading(false);
+      setBooks(res.data.books || []);
+      setTotal(res.data.total || 0);
+    } catch (err) {
+      console.error(err);
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   function handleFilter(newFilters) {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -213,7 +245,6 @@ export default function Home() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-500 selection:text-white">
       {/* --- HERO SECTION --- */}
@@ -372,6 +403,16 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <section className="container mx-auto px-6 py-12">
+        <h2 className="text-3xl font-bold mb-8">Recommended For You</h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {recommendedBooks.map((book) => (
+            <RecommendationCard key={book._id} recommendation={book} />
+          ))}
+        </div>
+      </section>
 
       {/* --- MAIN LAYOUT --- */}
       <div

@@ -15,87 +15,45 @@ class SemanticSearchService {
       return [];
     }
 
+    query = query.trim();
+
     const {
       limit = this.DEFAULT_LIMIT,
-
+      minScore = 0.75,
       inStockOnly = false,
-
       category = null,
     } = options;
 
-    //------------------------------------------------
-    // Vector Search
-    //------------------------------------------------
-
     let results;
 
+    // Generate embedding only when required
+    const embedding =
+      category || inStockOnly
+        ? await embeddingService.generateEmbeddingFromText(query)
+        : null;
+
     if (category) {
-      // Generate embedding from query
-
-      const embedding = await embeddingService.generateEmbeddingFromText(query);
-
-      results = await vectorService.findNearestInCategory(
-        embedding,
-
-        category,
-
-        {
-          limit,
-        },
-      );
+      results = await vectorService.findNearestInCategory(embedding, category, {
+        limit,
+        minScore,
+      });
     } else if (inStockOnly) {
-      const embedding = await embeddingService.generateEmbeddingFromText(query);
-
-      results = await vectorService.findNearestAvailable(
-        embedding,
-
-        {
-          limit,
-        },
-      );
+      results = await vectorService.findNearestAvailable(embedding, {
+        limit,
+        minScore,
+      });
     } else {
-      results = await vectorService.findNearestByText(
-        query,
-
-        {
-          limit,
-        },
-      );
+      results = await vectorService.semanticSearch(query, {
+        limit,
+        minScore,
+      });
     }
 
-    //------------------------------------------------
-    // Load Books
-    //------------------------------------------------
-
-    const scoreMap = new Map();
-
-    results.forEach((result) => {
-      scoreMap.set(
-        result._id.toString(),
-
-        result.score,
-      );
-    });
-
-    if (results.length === 0) {
-      return [];
-    }
-
-    const books = await Book.find({
-      _id: {
-        $in: results.map((r) => r._id),
-      },
-    }).lean();
-
-    return books
-
-      .map((book) => ({
-        ...book,
-
-        semanticScore: scoreMap.get(book._id.toString()) || 0,
-      }))
-
-      .sort((a, b) => b.semanticScore - a.semanticScore);
+    return {
+      query,
+      totalResults: results.length,
+      results,
+    };
   }
 }
 

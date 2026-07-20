@@ -18,6 +18,7 @@ class VectorService {
         numCandidates = this.defaultCandidates,
         filter = {},
         excludeBookId = null,
+        minScore = 0,
       } = options;
 
       const pipeline = [
@@ -34,6 +35,21 @@ class VectorService {
         {
           $project: {
             _id: 1,
+
+            title: 1,
+            authors: 1,
+            isbn: 1,
+            categories: 1,
+            publisher: 1,
+            language: 1,
+            image: 1,
+
+            price: 1,
+            stock: 1,
+            averageRating: 1,
+            totalRatings: 1,
+            totalSales: 1,
+
             score: {
               $meta: "vectorSearchScore",
             },
@@ -42,6 +58,20 @@ class VectorService {
       ];
 
       let results = await Book.aggregate(pipeline);
+
+      results = results.filter((book) => book.score >= minScore);
+
+      results = results.map((book) => ({
+        ...book,
+        confidence:
+          book.score >= 0.95
+            ? "Very High"
+            : book.score >= 0.9
+              ? "High"
+              : book.score >= 0.8
+                ? "Medium"
+                : "Low",
+      }));
 
       if (excludeBookId) {
         results = results.filter(
@@ -121,6 +151,26 @@ class VectorService {
           $gt: 0,
         },
       },
+    });
+  }
+
+  /**
+   * Semantic Search
+   */
+  async semanticSearch(query, options = {}) {
+    return this.findNearestByText(query, {
+      minScore: 0.75,
+      ...options,
+    });
+  }
+
+  /**
+   * Similar Books
+   */
+  async similarBooks(bookId, options = {}) {
+    return this.findNearestByBook(bookId, {
+      minScore: 0.8,
+      ...options,
     });
   }
 

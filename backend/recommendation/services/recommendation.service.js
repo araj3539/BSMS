@@ -10,11 +10,59 @@ const explainer = require("../algorithms/explainer");
 const frequentlyBoughtTogether = require("../algorithms/frequentlyBoughtTogether");
 const profileService = require("./profile.service");
 
+const Order = require("../../models/Order");
+
 class RecommendationService {
   constructor() {
     this.CACHE_DURATION = 24 * 60 * 60 * 1000;
 
     this.ALGORITHM_VERSION = 1;
+  }
+
+  async getSemanticRecommendations(bookId) {
+    return semantic.recommend(bookId);
+  }
+
+  async getPopularityRecommendations() {
+    return popularity.recommend();
+  }
+
+  async getCollaborativeRecommendations(userId) {
+    if (!userId) return [];
+
+    return collaborative.recommend(userId);
+  }
+
+  async getUserProfile(userId) {
+    if (!userId) return null;
+
+    return profileService.getProfile(userId);
+  }
+
+  getResult(result, name) {
+    if (result.status === "fulfilled") {
+      return result.value;
+    }
+
+    console.error(
+      `[Recommendation] ${name}:`,
+      result.reason?.message || result.reason,
+    );
+
+    return [];
+  }
+
+  getProfileResult(result) {
+    if (result.status === "fulfilled") {
+      return result.value;
+    }
+
+    console.error(
+      "[Recommendation] Profile:",
+      result.reason?.message || result.reason,
+    );
+
+    return null;
   }
 
   /**
@@ -50,10 +98,10 @@ class RecommendationService {
     //--------------------------------------------------
 
     const tasks = [
-      semantic.recommend(bookId),
-      popularity.recommend(),
-      userId ? collaborative.recommend(userId) : Promise.resolve([]),
-      userId ? profileService.getProfile(userId) : Promise.resolve(null),
+      this.getSemanticRecommendations(bookId),
+      this.getPopularityRecommendations(),
+      this.getCollaborativeRecommendations(userId),
+      this.getUserProfile(userId),
     ];
 
     const [
@@ -63,44 +111,16 @@ class RecommendationService {
       profileResult,
     ] = await Promise.allSettled(tasks);
 
-    const semanticResults =
-      semanticResult.status === "fulfilled" ? semanticResult.value : [];
+    const semanticResults = this.getResult(semanticResult, "Semantic");
 
-    if (semanticResult.status === "rejected") {
-      console.error(
-        "[Recommendation] Semantic:",
-        semanticResult.reason?.message || semanticResult.reason,
-      );
-    }
+    const popularityResults = this.getResult(popularityResult, "Popularity");
 
-    const popularityResults =
-      popularityResult.status === "fulfilled" ? popularityResult.value : [];
+    const collaborativeResults = this.getResult(
+      collaborativeResult,
+      "Collaborative",
+    );
 
-    if (popularityResult.status === "rejected") {
-      console.error(
-        "[Recommendation] Popularity:",
-        popularityResult.reason.message,
-      );
-    }
-
-    const collaborativeResults =
-      collaborativeResult.status === "fulfilled"
-        ? collaborativeResult.value
-        : [];
-
-    if (collaborativeResult.status === "rejected") {
-      console.error(
-        "[Recommendation] Collaborative:",
-        collaborativeResult.reason.message,
-      );
-    }
-
-    const profile =
-      profileResult.status === "fulfilled" ? profileResult.value : null;
-
-    if (profileResult.status === "rejected") {
-      console.error("[Recommendation] Profile:", profileResult.reason.message);
-    }
+    const profile = this.getProfileResult(profileResult);
     //--------------------------------------------------
     // 3. Hybrid Merge
     //--------------------------------------------------
@@ -125,7 +145,7 @@ class RecommendationService {
     // 5. Explanation
     //--------------------------------------------------
 
-    const explained = explainer.explainAll(reranked);
+    const explained = explainer.explainAll(reranked, profile);
 
     //--------------------------------------------------
     // 6. Save Cache
@@ -209,6 +229,25 @@ class RecommendationService {
 
     if (userId) {
       try {
+        // Get all purchased books
+        const orders = await Order.find({
+          userId,
+          paymentStatus: "paid",
+          status: {
+            $ne: "cancelled",
+          },
+        }).select("items");
+
+        const ownedBookIds = new Set();
+
+        orders.forEach((order) => {
+          order.items.forEach((item) => {
+            if (item.bookId) {
+              ownedBookIds.add(item.bookId.toString());
+            }
+          });
+        });
+
         const [profile, collaborativeResults, popularityResults] =
           await Promise.all([
             profileService.getProfile(userId),
@@ -230,9 +269,13 @@ class RecommendationService {
           profile,
         });
 
-        const reranked = reranker.rerank(merged);
+        const filtered = merged.filter(
+          (item) => !ownedBookIds.has(item.book._id.toString()),
+        );
 
-        recommended = explainer.explainAll(reranked).slice(0, 10);
+        const reranked = reranker.rerank(filtered);
+
+        recommended = explainer.explainAll(reranked, profile).slice(0, 10);
       } catch (err) {
         console.error("[Home] Personalized:", err.message);
       }

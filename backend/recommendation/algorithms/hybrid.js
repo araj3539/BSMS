@@ -1,13 +1,44 @@
 class HybridRecommendation {
   constructor() {
-    this.weights = {
-      semantic: 0.65,
-      collaborative: 0.2,
-      popularity: 0.1,
-      profile: 0.05,
-    };
-
     this.MAX_PROFILE_SCORE = 100;
+  }
+
+  getWeights(profile) {
+    if (!profile) {
+      return {
+        semantic: 0.55,
+        collaborative: 0,
+        popularity: 0.35,
+        profile: 0.1,
+      };
+    }
+
+    const interactionCount = profile.totalInteractions || 0;
+
+    if (interactionCount < 20) {
+      return {
+        semantic: 0.55,
+        collaborative: 0.1,
+        popularity: 0.25,
+        profile: 0.1,
+      };
+    }
+
+    if (interactionCount < 100) {
+      return {
+        semantic: 0.5,
+        collaborative: 0.25,
+        popularity: 0.15,
+        profile: 0.1,
+      };
+    }
+
+    return {
+      semantic: 0.45,
+      collaborative: 0.35,
+      popularity: 0.1,
+      profile: 0.1,
+    };
   }
 
   normalize(score) {
@@ -108,19 +139,19 @@ class HybridRecommendation {
     });
   }
 
-  calculateFinalScore(recommendation) {
+  calculateFinalScore(recommendation, profile) {
     let total = 0;
 
-    for (const algorithm in this.weights) {
-      const score = recommendation.scores[algorithm] || 0;
+    const weights = this.getWeights(profile);
 
-      total += score * this.weights[algorithm];
+    for (const algorithm in weights) {
+      total += (recommendation.scores[algorithm] || 0) * weights[algorithm];
     }
 
     return this.normalize(total);
   }
 
-  calculateScores(map) {
+  calculateScores(map, profile) {
     map.forEach((recommendation) => {
       recommendation.finalScore = this.calculateFinalScore(recommendation);
     });
@@ -154,7 +185,7 @@ class HybridRecommendation {
 
     this.applyProfileBoost(map, profile);
 
-    this.calculateScores(map);
+    this.calculateScores(map, profile);
 
     return [...map.values()].sort((a, b) => b.finalScore - a.finalScore);
   }
