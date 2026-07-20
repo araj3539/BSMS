@@ -5,17 +5,22 @@ import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import profileService from "../services/profile.service";
-import { 
-  BookOpen, 
-  ShoppingBag, 
-  Heart, 
-  ShoppingCart, 
-  Wallet, 
-  Sparkles, 
-  TrendingUp, 
-  PenTool, 
-  Quote
-} from 'lucide-react';
+import {
+  BookOpen,
+  ShoppingBag,
+  Heart,
+  ShoppingCart,
+  Wallet,
+  Sparkles,
+  TrendingUp,
+  PenTool,
+  Quote,
+  Activity,
+  Target,
+  Lightbulb,
+  Bookmark,
+  Feather,
+} from "lucide-react";
 
 export default function Profile() {
   const { user, updateProfile } = useAuth();
@@ -97,137 +102,6 @@ export default function Profile() {
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4 sm:px-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* ================= AI CUSTOMER PROFILE ================= */}
-
-      <div className="mb-10 relative group">
-  {/* Ambient Glow Effect */}
-  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
-  
-  <div className="relative bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-3xl p-8 md:p-10 text-white shadow-2xl border border-white/10 overflow-hidden">
-    
-    {/* Decorative background element */}
-    <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-    <div className="relative z-10">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/10">
-          <Sparkles className="w-6 h-6 text-indigo-300" />
-        </div>
-        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">
-          AI Customer Profile
-        </h2>
-      </div>
-
-      <p className="text-indigo-200/80 mb-8 text-lg font-medium">
-        Personalized reading insights generated from your activity.
-      </p>
-
-      {profileLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center space-y-4">
-          <div className="w-10 h-10 border-4 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
-          <p className="text-indigo-200 animate-pulse">Analyzing reading patterns...</p>
-        </div>
-      ) : (
-        customerProfile && (
-          <div className="space-y-8 mt-8">
-            
-            {/* Stats Grid - Glassmorphism */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {[
-                { label: 'Reader Level', value: customerProfile.readerLevel, icon: BookOpen, color: 'text-blue-300' },
-                { label: 'Purchased', value: customerProfile.statistics.booksPurchased, icon: ShoppingBag, color: 'text-emerald-300' },
-                { label: 'Wishlist', value: customerProfile.statistics.wishlistCount, icon: Heart, color: 'text-rose-300' },
-                { label: 'In Cart', value: customerProfile.statistics.cartCount, icon: ShoppingCart, color: 'text-amber-300' },
-                { label: 'Total Spent', value: `₹${Number(customerProfile.statistics.amountSpent).toFixed(2)}`, icon: Wallet, color: 'text-purple-300' },
-              ].map((stat, idx) => (
-                <div 
-                  key={idx} 
-                  className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between group/stat"
-                >
-                  <div className="flex items-center justify-between mb-3 opacity-70 group-hover/stat:opacity-100 transition-opacity">
-                    <p className="text-xs font-medium uppercase tracking-wider">{stat.label}</p>
-                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                  </div>
-                  <h3 className="text-2xl font-bold tracking-tight">
-                    {stat.value}
-                  </h3>
-                </div>
-              ))}
-            </div>
-
-            {/* Lists Section */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Favorite Categories */}
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/[0.07] transition-colors">
-                <div className="flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
-                  <TrendingUp className="w-5 h-5 text-indigo-400" />
-                  <h3 className="font-bold text-lg">Top Categories</h3>
-                </div>
-                <div className="space-y-4">
-                  {customerProfile.favoriteCategories.map((cat) => (
-                    <div key={cat.category} className="group/item">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-slate-200">{cat.category}</span>
-                        <span className="text-indigo-300 font-semibold">{cat.score.toFixed(1)}</span>
-                      </div>
-                      {/* Visual Score Bar */}
-                      <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-indigo-500 to-purple-400 h-1.5 rounded-full transition-all duration-1000 ease-out group-hover/item:opacity-80"
-                          style={{ width: `${Math.min((cat.score / 10) * 100, 100)}%` }} // Assuming score is out of 10, adjust if out of 5 or 100
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Favorite Authors */}
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/[0.07] transition-colors">
-                <div className="flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
-                  <PenTool className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-lg">Top Authors</h3>
-                </div>
-                <div className="space-y-4">
-                  {customerProfile.favoriteAuthors.map((author) => (
-                    <div key={author.author} className="group/item">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-slate-200">{author.author}</span>
-                        <span className="text-purple-300 font-semibold">{author.score.toFixed(1)}</span>
-                      </div>
-                      {/* Visual Score Bar */}
-                      <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-purple-500 to-pink-400 h-1.5 rounded-full transition-all duration-1000 ease-out group-hover/item:opacity-80"
-                          style={{ width: `${Math.min((author.score / 10) * 100, 100)}%` }} // Assuming score is out of 10
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* AI Summary Section */}
-            <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 rounded-2xl p-6 md:p-8 relative overflow-hidden">
-              <Quote className="absolute -top-2 -left-2 w-16 h-16 text-indigo-500/10 rotate-180" />
-              <div className="relative z-10">
-                <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-indigo-200">
-                  <Sparkles className="w-5 h-5" />
-                  AI Reading Analysis
-                </h3>
-                <p className="leading-relaxed text-slate-200 text-lg font-light tracking-wide">
-                  "{customerProfile.aiSummary}"
-                </p>
-              </div>
-            </div>
-
-          </div>
-        )
-      )}
-    </div>
-  </div>
-</div>
       {/* --- HEADER SECTION --- */}
       <div className="relative mb-12">
         {/* Decorative Background */}
@@ -427,6 +301,420 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* ================= AI CUSTOMER PROFILE ================= */}
+
+      <div className="mb-10 relative group">
+        {/* Ambient Glow Effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition duration-700"></div>
+
+        <div className="relative bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 rounded-3xl p-8 md:p-10 text-white shadow-2xl border border-white/10 overflow-hidden">
+          {/* Decorative background element */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/10">
+                <Sparkles className="w-6 h-6 text-indigo-300" />
+              </div>
+              <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">
+                AI Customer Profile
+              </h2>
+            </div>
+
+            <p className="text-indigo-200/80 mb-8 text-lg font-medium">
+              Personalized reading insights generated from your activity.
+            </p>
+
+            {profileLoading ? (
+              <div className="py-20 flex flex-col items-center justify-center space-y-4">
+                <div className="w-10 h-10 border-4 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
+                <p className="text-indigo-200 animate-pulse">
+                  Analyzing reading patterns...
+                </p>
+              </div>
+            ) : (
+              customerProfile && (
+                <div className="space-y-8 mt-8">
+                  {/* Stats Grid - Glassmorphism */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {[
+                      {
+                        label: "Reader Level",
+                        value: customerProfile.readerLevel,
+                        icon: BookOpen,
+                        color: "text-blue-300",
+                      },
+                      {
+                        label: "Purchased",
+                        value: customerProfile.statistics.booksPurchased,
+                        icon: ShoppingBag,
+                        color: "text-emerald-300",
+                      },
+                      {
+                        label: "Wishlist",
+                        value: customerProfile.statistics.wishlistCount,
+                        icon: Heart,
+                        color: "text-rose-300",
+                      },
+                      {
+                        label: "In Cart",
+                        value: customerProfile.statistics.cartCount,
+                        icon: ShoppingCart,
+                        color: "text-amber-300",
+                      },
+                      {
+                        label: "Total Spent",
+                        value: `₹${Number(customerProfile.statistics.amountSpent).toFixed(2)}`,
+                        icon: Wallet,
+                        color: "text-purple-300",
+                      },
+                    ].map((stat, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between group/stat"
+                      >
+                        <div className="flex items-center justify-between mb-3 opacity-70 group-hover/stat:opacity-100 transition-opacity">
+                          <p className="text-xs font-medium uppercase tracking-wider">
+                            {stat.label}
+                          </p>
+                          <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                        </div>
+                        <h3 className="text-2xl font-bold tracking-tight">
+                          {stat.value}
+                        </h3>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Lists Section */}
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Favorite Categories */}
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/[0.07] transition-colors">
+                      <div className="flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
+                        <TrendingUp className="w-5 h-5 text-indigo-400" />
+                        <h3 className="font-bold text-lg">Top Categories</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {customerProfile.favoriteCategories.map((cat) => (
+                          <div key={cat.category} className="group/item">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium text-slate-200">
+                                {cat.category}
+                              </span>
+                              <span className="text-indigo-300 font-semibold">
+                                {cat.score.toFixed(1)}
+                              </span>
+                            </div>
+                            {/* Visual Score Bar */}
+                            <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-indigo-500 to-purple-400 h-1.5 rounded-full transition-all duration-1000 ease-out group-hover/item:opacity-80"
+                                style={{
+                                  width: `${Math.min((cat.score / 10) * 100, 100)}%`,
+                                }} // Assuming score is out of 10, adjust if out of 5 or 100
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Favorite Authors */}
+                    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/[0.07] transition-colors">
+                      <div className="flex items-center gap-2 mb-6 border-b border-white/10 pb-4">
+                        <PenTool className="w-5 h-5 text-purple-400" />
+                        <h3 className="font-bold text-lg">Top Authors</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {customerProfile.favoriteAuthors.map((author) => (
+                          <div key={author.author} className="group/item">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-medium text-slate-200">
+                                {author.author}
+                              </span>
+                              <span className="text-purple-300 font-semibold">
+                                {author.score.toFixed(1)}
+                              </span>
+                            </div>
+                            {/* Visual Score Bar */}
+                            <div className="w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-purple-500 to-pink-400 h-1.5 rounded-full transition-all duration-1000 ease-out group-hover/item:opacity-80"
+                                style={{
+                                  width: `${Math.min((author.score / 10) * 100, 100)}%`,
+                                }} // Assuming score is out of 10
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Summary Section */}
+                  <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-400/20 rounded-2xl p-6 md:p-8 relative overflow-hidden">
+                    <Quote className="absolute -top-2 -left-2 w-16 h-16 text-indigo-500/10 rotate-180" />
+                    <div className="relative z-10">
+                      <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-indigo-200">
+                        <Sparkles className="w-5 h-5" />
+                        AI Reading Analysis
+                      </h3>
+                      <p className="leading-relaxed text-slate-200 text-lg font-light tracking-wide">
+                        "{customerProfile.aiSummary}"
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+      {customerProfile && (
+        <>
+          {/* ================= Reading Analytics ================= */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 mt-8 relative overflow-hidden group">
+            {/* Subtle background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-50 to-transparent rounded-bl-full -z-10 opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                Reading Analytics
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-12 gap-8 items-center">
+              {/* LEFT: Metrics (Takes up slightly more space) */}
+              <div className="md:col-span-7 space-y-8">
+                {/* Total Interactions */}
+                <div>
+                  <div className="flex justify-between items-end mb-3">
+                    <span className="flex items-center gap-2 text-slate-500 font-medium">
+                      <Activity className="w-4 h-4 text-indigo-500" />
+                      Total Interactions
+                    </span>
+                    <strong className="text-2xl font-bold text-slate-800">
+                      {customerProfile.recommendationProfile.totalInteractions}
+                    </strong>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000 ease-out relative"
+                      style={{
+                        width: `${Math.min(
+                          customerProfile.recommendationProfile
+                            .totalInteractions,
+                          100,
+                        )}%`,
+                      }}
+                    >
+                      {/* Shimmer effect on the bar */}
+                      <div className="absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-r from-transparent to-white/30 blur-sm"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommendation Confidence */}
+                <div>
+                  <div className="flex justify-between items-end mb-3">
+                    <span className="flex items-center gap-2 text-slate-500 font-medium">
+                      <Target className="w-4 h-4 text-emerald-500" />
+                      AI Confidence
+                    </span>
+                    <strong className="text-2xl font-bold text-slate-800">
+                      {Math.round(
+                        customerProfile.recommendationProfile.confidence * 100,
+                      )}
+                      %
+                    </strong>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-1000 ease-out relative"
+                      style={{
+                        width: `${
+                          customerProfile.recommendationProfile.confidence * 100
+                        }%`,
+                      }}
+                    >
+                      {/* Shimmer effect on the bar */}
+                      <div className="absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-r from-transparent to-white/30 blur-sm"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: Explanatory Text Box */}
+              <div className="md:col-span-5 h-full">
+                <div className="h-full bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100/50 rounded-2xl p-6 flex flex-col justify-center">
+                  <div className="flex items-center gap-2 mb-3 text-indigo-700">
+                    <Lightbulb className="w-5 h-5" />
+                    <h3 className="font-semibold text-lg">How this works</h3>
+                  </div>
+
+                  <p className="text-slate-600 text-sm leading-relaxed mb-3">
+                    Recommendation confidence increases as you interact with the
+                    library.
+                  </p>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    More{" "}
+                    <span className="font-medium text-slate-700">
+                      views, ratings, purchases,
+                    </span>{" "}
+                    and{" "}
+                    <span className="font-medium text-slate-700">reviews</span>{" "}
+                    help the engine recommend books more accurately.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ================= Favorite Categories ================= */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 mt-8 relative overflow-hidden group/card">
+            {/* Subtle background blur */}
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-50 rounded-full blur-3xl -z-10 group-hover/card:bg-indigo-50 transition-colors duration-700"></div>
+
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                <Bookmark className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                Favorite Categories
+              </h2>
+            </div>
+
+            <div className="space-y-6">
+              {customerProfile.favoriteCategories.map((item, index) => {
+                // Array of gradients to cycle through so each bar looks distinct
+                const gradients = [
+                  "from-indigo-500 to-blue-500",
+                  "from-purple-500 to-pink-500",
+                  "from-emerald-500 to-teal-500",
+                  "from-amber-500 to-orange-400",
+                  "from-rose-500 to-red-500",
+                ];
+
+                // Pick a gradient based on the item's index
+                const gradientClass = gradients[index % gradients.length];
+
+                return (
+                  <div key={item.category} className="group">
+                    <div className="flex justify-between items-center mb-2.5">
+                      {/* Category Name & Rank */}
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors duration-300">
+                          {index + 1}
+                        </span>
+                        <span className="font-semibold text-slate-700 group-hover:text-slate-900 transition-colors duration-300">
+                          {item.category}
+                        </span>
+                      </div>
+
+                      {/* Score Bubble */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                          Score
+                        </span>
+                        <strong className="text-sm font-bold text-slate-800 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm group-hover:border-slate-200 group-hover:shadow transition-all duration-300">
+                          {item.score.toFixed(1)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className={`h-full bg-gradient-to-r ${gradientClass} rounded-full transition-all duration-1000 ease-out relative`}
+                        style={{
+                          width: `${Math.min(item.score * 10, 100)}%`,
+                        }}
+                      >
+                        {/* Inner shimmer effect */}
+                        <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-white/30 blur-sm"></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ================= Favorite Authors ================= */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 mt-8 relative overflow-hidden group/card">
+            {/* Subtle background blur */}
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-purple-50 rounded-full blur-3xl -z-10 group-hover/card:bg-fuchsia-50 transition-colors duration-700"></div>
+
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+                <Feather className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                Favorite Authors
+              </h2>
+            </div>
+
+            <div className="space-y-6">
+              {customerProfile.favoriteAuthors.map((item, index) => {
+                // A distinct array of purple/pink gradients for authors
+                const gradients = [
+                  "from-purple-600 to-indigo-500",
+                  "from-fuchsia-500 to-pink-500",
+                  "from-violet-500 to-purple-400",
+                  "from-pink-500 to-rose-400",
+                  "from-indigo-400 to-purple-500",
+                ];
+
+                // Pick a gradient based on the item's index
+                const gradientClass = gradients[index % gradients.length];
+
+                return (
+                  <div key={item.author} className="group">
+                    <div className="flex justify-between items-center mb-2.5">
+                      {/* Author Name & Rank */}
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-xs font-bold group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors duration-300">
+                          {index + 1}
+                        </span>
+                        <span className="font-semibold text-slate-700 group-hover:text-slate-900 transition-colors duration-300">
+                          {item.author}
+                        </span>
+                      </div>
+
+                      {/* Score Bubble */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                          Score
+                        </span>
+                        <strong className="text-sm font-bold text-slate-800 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm group-hover:border-slate-200 group-hover:shadow transition-all duration-300">
+                          {item.score.toFixed(1)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className={`h-full bg-gradient-to-r ${gradientClass} rounded-full transition-all duration-1000 ease-out relative`}
+                        style={{
+                          width: `${Math.min(item.score * 10, 100)}%`,
+                        }}
+                      >
+                        {/* Inner shimmer effect */}
+                        <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-white/30 blur-sm"></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
