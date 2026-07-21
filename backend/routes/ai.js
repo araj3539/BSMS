@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Book = require("../models/Book");
+const semanticSearchService = require("../recommendation/services/semanticSearch.service");
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -97,41 +98,60 @@ router.post("/chat", async (req, res) => {
 
       if (!isAskingAboutContext) {
         // 1. Convert the user's chat message into a mathematical vector
-        const embeddingModel = genAI.getGenerativeModel({
-          model: "gemini-embedding-2",
-        });
-        const queryResult = await embeddingModel.embedContent({
-          content: { parts: [{ text: message }] }, // <-- Properly formatted Content object
-          outputDimensionality: 768,
-        });
-        const queryVector = queryResult.embedding.values;
+        // -------------------------------------------------------
+        // Semantic Search using centralized recommendation engine
+        // -------------------------------------------------------
 
-        // 2. Perform a semantic search in MongoDB using Cosine Similarity
-        books = await Book.aggregate([
-          {
-            $vectorSearch: {
-              index: "vector_index", // You must create a Vector Search Index in your MongoDB Atlas UI named "vector_index"
-              path: "embedding",
-              queryVector: queryVector,
-              numCandidates: 100, // Number of documents to evaluate
-              limit: 5, // Number of documents to return
-            },
-          },
-          {
-            // Exclude the heavy embedding array, return only what the AI needs
-            $project: {
-              title: 1,
-              author: 1,
-              price: 1,
-              stock: 1,
-              category: 1,
-              description: 1,
-              rating: 1,
-              score: { $meta: "vectorSearchScore" },
-            },
-          },
-        ]);
-        console.log("Raw Vector Search Results:", books.map(b => ({ title: b.title, score: b.score })));
+        const searchResult = await semanticSearchService.search(message, {
+          limit: 20,
+          inStockOnly: false,
+        });
+
+        // Normalize semanticSearchService response
+        if (Array.isArray(searchResult)) {
+          books = searchResult;
+        } else if (Array.isArray(searchResult?.books)) {
+          books = searchResult.books;
+        } else if (Array.isArray(searchResult?.results)) {
+          books = searchResult.results;
+        } else {
+          console.error(
+            "[AI Chat] Unexpected semantic search response:",
+            searchResult,
+          );
+
+          books = [];
+        }
+
+        console.log(
+          "[AI Chat] Semantic Search Results:",
+          books.slice(0, 10).map((item) => ({
+            title: item.title || item.book?.title,
+            score: item.semanticScore ?? item.score ?? item.book?.semanticScore,
+          })),
+        );
+
+        // Normalize recommendation-shaped results if necessary
+        books = books
+          .map((item) => {
+            if (item.book) {
+              return {
+                ...item.book,
+                semanticScore:
+                  item.semanticScore ??
+                  item.score ??
+                  item.book.semanticScore ??
+                  0,
+              };
+            }
+
+            return item;
+          })
+          .slice(0, 8);
+        console.log(
+          "Raw Vector Search Results:",
+          books.map((b) => ({ title: b.title, score: b.score })),
+        );
 
         // FILTERING (Optional): Only keep results with a strong similarity score
         // books = books.filter((b) => b.score > 0.65);
@@ -140,19 +160,41 @@ router.post("/chat", async (req, res) => {
         if (books.length > 0) {
           inventoryContext += books
             .map(
-              (b) =>
-                `- [**${b.title}**](/book/${b._id}) by ${b.author} (Rating: ${b.rating}★, Price: ₹${b.price})\n  *${b.stock > 0 ? "In Stock" : "Out of Stock"}* - ${b.description ? b.description.substring(0, 120) : "No description"}...`,
+              (b) => `
+- [**${b.title}**](/book/${b._id})
+  Author: ${b.author || "Unknown"}
+  Categories: ${
+    Array.isArray(b.categories)
+      ? b.categories.join(", ")
+      : b.category || "Unknown"
+  }
+  Rating: ${b.rating || 0}★
+  Price: ₹${b.price}
+  Status: ${b.stock > 0 ? `In Stock (${b.stock})` : "Out of Stock"}
+  Semantic Match: ${
+    typeof b.semanticScore === "number" ? b.semanticScore.toFixed(3) : "N/A"
+  }
+  Description: ${
+    b.description ? b.description.substring(0, 300) : "No description available"
+  }
+`,
             )
-            .join("\n\n");
+            .join("\n");
         } else {
-          // Fallback to top sellers if the semantic search yields no confident matches
           const bestsellers = await Book.find()
             .sort({ soldCount: -1 })
             .limit(3)
-            .select("title author price stock category description rating");
+            .select(
+              "title author authors price stock category categories description rating",
+            );
+
           inventoryContext += "### BESTSELLERS (General Recommendations):\n";
+
           inventoryContext += bestsellers
-            .map((b) => `- [**${b.title}**](/book/${b._id}) by ${b.author}`)
+            .map(
+              (b) =>
+                `- [**${b.title}**](/book/${b._id}) by ${b.author || "Unknown"}`,
+            )
             .join("\n");
         }
       } else {
