@@ -404,16 +404,6 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="container mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold mb-8">Recommended For You</h2>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {recommendedBooks.map((book) => (
-            <RecommendationCard key={book._id} recommendation={book} />
-          ))}
-        </div>
-      </section>
-
       {/* --- MAIN LAYOUT --- */}
       <div
         id="book-grid"
@@ -575,6 +565,16 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      <section className="container mx-auto px-6 py-12">
+        <h2 className="text-3xl font-bold mb-8">Recommended For You</h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {recommendedBooks.map((book) => (
+            <RecommendationCard key={book._id} recommendation={book} />
+          ))}
+        </div>
+      </section>
 
       {/* --- PRE-FOOTER SECTION --- */}
       <div className="container mx-auto px-4 md:px-6 pb-12 md:pb-20">
